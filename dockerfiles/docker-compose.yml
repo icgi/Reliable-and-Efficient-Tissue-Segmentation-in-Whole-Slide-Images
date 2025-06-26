@@ -1,0 +1,22 @@
+version: '2'
+services:
+  nnunet:
+    image: nnunet_image
+    ports:
+      - "5000:5000"
+    build:
+            context: ..
+            dockerfile: dockerfiles/Dockerfile
+
+
+    volumes:
+            - ../:/nnUNet
+            - /media:/media
+            - /media/storage/nnUNet_raw:/data/nnUNet_raw
+            - ../models:/models
+    environment:
+            - nnUNet_raw=/mnt/raid0/nnUNet_raw
+            - nnUNet_preprocessed=/mnt/raid0/nnUNet_preprocessed
+            - nnUNet_results=/media/domore_rackstation4_vol1/sander/dev/nnUNet_results
+    working_dir: /nnUNet
+    ipc: host

@@ -1,0 +1,9 @@
+/media/domore_rackstation1_vol2/scan_storage/Q64/XR/Q64-0261_A3/Q64-0261_A3_15H65656-A3XR_HE_40_NOMARKING - 2019-09-20 14.03.46.ndpi
+/media/domore_rackstation5_vol1/scan_storage/S98/D03-41984-IIB.mrxs
+/media/domore_rackstation3_vol1/scan_storage/S20_SM/D00-41134-IVB.mrxs
+/media/domore_rackstation1_vol1/scan_storage/S77/AP/S77-0002_VI-6/S77-0002_VI-6_T16-03822_AP_HE_40.svs
+/media/domore_rackstation1_vol1/scan_storage/S77/XR/S77-0003_I-2/S77-0003_I-2_T16-04017_XR_HE_40 - 2022-10-10 15.08.37.ndpi
+/media/domore_rackstation2_vol2/scan_storage/R75/Aperio/R75-0005_3_G3_L1/R75-0005_3_G3_L1.svs
+/media/domore_rackstation2_vol2/scan_storage/R27/Aperio/R27-0518_1_A_L1-3/R27-0518_1_A_L1-3.svs
+/media/domore_rackstation2_vol2/scan_storage/R27/XR/R27-0001_1_-_L1-3/R27-0001_1_-_L1-3.ndpi
+/media/domore_rackstation5_vol2/scan_storage/T18/biopsy/105biopsy.ndpi

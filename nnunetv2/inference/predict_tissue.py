@@ -244,30 +244,6 @@ class TissueNNUnetPredictor(nnUNetPredictor):
         empty_cache(self.device)
         return ret
 
-def convert_output_name(slide):
-    dataset = slide.split('/')[4]
-    slide = Path(slide)
-    name = ''
-
-    if dataset in ['Q64', 'S77', 'R75', 'R27']:
-        scanner = slide.parent.parent.name
-
-        if scanner == 'Aperio' or scanner == 'AP':
-            start_part = f'LEICA_APERIO_{dataset}___LEICA_APERIO'
-            name = f'{start_part}___{slide.stem}.png'
-        elif scanner == 'XR':
-            start_part = f'HAMAMATSU_NANOZOOMER_{dataset}___HAMAMATSU_NANOZOOMER'
-            name = f'{start_part}___{slide.stem}.png'
-
-    elif dataset in ['S20_SM', 'S98']:
-        start_part = f'3DHISTECH_PANNORAMIC_{dataset}___3DHISTECH_PANNORAMIC'
-        name = f'{start_part}___{slide.stem}.png'
-    elif dataset == 'T18':
-            start_part = f'HAMAMATSU_NANOZOOMER_{dataset}___HAMAMATSU_NANOZOOMER'
-            name = f'{start_part}___{slide.stem}.png'
-
-    return name
-
 def convert_wsi_to_mpp(
     filepaths,
     desired_mpp: float = 16.3745,
@@ -295,8 +271,8 @@ def convert_wsi_to_mpp(
             print(f"[WARN] File not found: {fp}")
             continue
 
-        file_name = convert_output_name(str(fp)).replace('.png', '')
-        out_name = f"{file_name}.{save_format}"
+        # file_name = convert_output_name(str(fp)).replace('.png', '')
+        out_name = f"{str(fp)}.{save_format}"
         out_path = output_dir / out_name
 
         if out_path.exists():
@@ -353,7 +329,7 @@ def convert_wsi_to_mpp(
             img_out.save(str(out_path))
             print(f"→ Saved {out_path}")
         except Exception as e:
-            print(f'Skipping scan {file_name}: {e}')
+            print(f'Skipping scan {str(fp)}: {e}')
 
 def predict_tissue_entry_point():
     import argparse

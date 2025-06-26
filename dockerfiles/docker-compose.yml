@@ -11,12 +11,11 @@ services:
 
     volumes:
             - ../:/nnUNet
-            - /media:/media
-            - /media/storage/nnUNet_raw:/data/nnUNet_raw
+            - /path/to/nnUNet_raw:/data/nnUNet_raw
             - ../models:/models
     environment:
-            - nnUNet_raw=/mnt/raid0/nnUNet_raw
-            - nnUNet_preprocessed=/mnt/raid0/nnUNet_preprocessed
-            - nnUNet_results=/media/domore_rackstation4_vol1/sander/dev/nnUNet_results
+            - nnUNet_raw=/path/to/nnUNet_raw
+            - nnUNet_preprocessed=/path/to/nnUNet_preprocessed
+            - nnUNet_results=/path/to/nnUNet_results
     working_dir: /nnUNet
     ipc: host

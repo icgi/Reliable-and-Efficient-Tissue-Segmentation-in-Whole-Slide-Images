@@ -25,7 +25,32 @@ project_root/
 ```
 
 
+## Running inference for tissue segmentation
 
+```bash
+nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output
+```
+By default the standard nnUNetv2 model will be used. If you want to use the **residual encoder (ResEnc)** model, please use the **-resenc** flag. Please be aware that inference time will be slightly slower due to the complexity of the ResEnc network. 
+
+```bash
+nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output -resenc
+```
+
+We have modified the pipeline to output [0,255] instead of the original [0,1] output. If you still want to have your segmentation as **binary [0,1]**. please use the **--b01** flag during inference:
+
+```bash
+nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --b01
+```
+
+## Hardware requirements and inference times
+As a bare minimum, we recommend to run on a RTX3090 or better. For the ResEnc architecture, you will need at least 24GB of memory.
+
+We present average inference times for both models on a RTX3090:
+
+|  Model | Avg. infernce time | Scan count |
+| ------ | ------------------ | ---------- |
+| nnUNet |      1.42 seconds  |     100    |
+| ResEnc |      3.09 seconds  |     100    |
 
 
 ---

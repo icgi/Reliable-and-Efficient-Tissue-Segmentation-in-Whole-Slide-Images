@@ -27,19 +27,31 @@ from pathlib import Path
 import os
 
 
+# def get_identifiers_from_splitted_dataset_folder(folder: str, file_ending: str):
+#     files = subfiles(folder, suffix=file_ending, join=False)
+#     # all files have a 4 digit channel index (_XXXX)
+#     crop = len(file_ending) + 5
+#     files = [i[:-crop] for i in files]
+#     # only unique image ids
+#     files = np.unique(files)
+#     return files
+
 def get_identifiers_from_splitted_dataset_folder(folder: str, file_ending: str):
     files = subfiles(folder, suffix=file_ending, join=False)
     # all files have a 4 digit channel index (_XXXX)
-    crop = len(file_ending) + 5
+    crop = len(file_ending)
     files = [i[:-crop] for i in files]
     # only unique image ids
     files = np.unique(files)
     return files
 
+# def create_paths_fn(folder, files, file_ending, f):
+#     p = re.compile(re.escape(f) + r"_\d\d\d\d" + re.escape(file_ending))            
+#     return [join(folder, i) for i in files if p.fullmatch(i)]
 
 def create_paths_fn(folder, files, file_ending, f):
-    p = re.compile(re.escape(f) + r"_\d\d\d\d" + re.escape(file_ending))            
-    return [join(folder, i) for i in files if p.fullmatch(i)]
+    p = re.compile(re.escape(f) + re.escape(file_ending))            
+    return [join(folder, i) for i in files if p.fullmatch(i)] 
 
 
 def create_lists_from_splitted_dataset_folder(folder: str, file_ending: str, identifiers: List[str] = None, num_processes: int = 12) -> List[

@@ -19,9 +19,7 @@ RUN apt-get update && apt-get install --yes \
     vim && \
     rm -rf /var/lib/apt/lists/*
 	
-# Install Python dependencies from requirements.txt
 
-RUN pip install --no-cache-dir openslide-python
 
 # Set working directory for nnUNet
 WORKDIR /nnUNet

@@ -87,6 +87,7 @@ nnunetv2/inference/data_iterators.py
 nnunetv2/inference/examples.py
 nnunetv2/inference/export_prediction.py
 nnunetv2/inference/predict_from_raw_data.py
+nnunetv2/inference/predict_tissue.py
 nnunetv2/inference/sliding_window_prediction.py
 nnunetv2/model_sharing/__init__.py
 nnunetv2/model_sharing/entry_points.py

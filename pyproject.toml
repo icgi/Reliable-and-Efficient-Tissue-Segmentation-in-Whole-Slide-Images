@@ -51,7 +51,9 @@ dependencies = [
     "imagecodecs",
     "yacs",
     "batchgeneratorsv2>=0.2",
-    "einops"
+    "einops",
+    "openslide-python>=1.4.2",
+    "opencv-python==4.11.0.86"
 ]
 
 [project.urls]
@@ -66,6 +68,7 @@ nnUNetv2_preprocess = "nnunetv2.experiment_planning.plan_and_preprocess_entrypoi
 nnUNetv2_train = "nnunetv2.run.run_training:run_training_entry"
 nnUNetv2_predict_from_modelfolder = "nnunetv2.inference.predict_from_raw_data:predict_entry_point_modelfolder"
 nnUNetv2_predict = "nnunetv2.inference.predict_from_raw_data:predict_entry_point"
+nnUNetv2_predict_tissue = "nnunetv2.inference.predict_tissue:predict_tissue_entry_point"
 nnUNetv2_convert_old_nnUNet_dataset = "nnunetv2.dataset_conversion.convert_raw_dataset_from_old_nnunet_format:convert_entry_point"
 nnUNetv2_find_best_configuration = "nnunetv2.evaluation.find_best_configuration:find_best_configuration_entry_point"
 nnUNetv2_determine_postprocessing = "nnunetv2.postprocessing.remove_connected_components:entry_point_determine_postprocessing_folder"

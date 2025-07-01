@@ -337,6 +337,7 @@ def predict_tissue_entry_point():
                                                  'you want to manually specify a folder containing a trained nnU-Net '
                                                  'model. This is useful when the nnunet environment variables '
                                                  '(nnUNet_results) are not set.')
+    ########################## Set these parameters for inference ##########################
     parser.add_argument('-i', type=str, required=True,
                         help='input folder. Remember to use the correct channel numberings for your files (_0000 etc). '
                              'File endings must be the same as the training dataset!')
@@ -347,6 +348,8 @@ def predict_tissue_entry_point():
                         help='Converts output masks to binary 0,1 instead of standard 0,255')
     parser.add_argument('-resenc', action='store_true', required=False, default=False,
                         help='Use the Residual encoder nnUNet (new recommended base model from author)')
+    ########################################################################################
+
     parser.add_argument('-step_size', type=float, required=False, default=0.5,
                         help='Step size for sliding window prediction. The larger it is the faster but less accurate '
                              'the prediction. Default: 0.5. Cannot be larger than 1. We recommend the default.')
@@ -386,12 +389,12 @@ def predict_tissue_entry_point():
                         help='Set this flag to disable progress bar. Recommended for HPC environments (non interactive '
                              'jobs)')
 
-    print(
-        "\n#######################################################################\nPlease cite the following paper "
-        "when using nnU-Net:\n"
-        "Isensee, F., Jaeger, P. F., Kohl, S. A., Petersen, J., & Maier-Hein, K. H. (2021). "
-        "nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation. "
-        "Nature methods, 18(2), 203-211.\n#######################################################################\n")
+    # print(
+    #     "\n#######################################################################\nPlease cite the following paper "
+    #     "when using nnU-Net:\n"
+    #     "Isensee, F., Jaeger, P. F., Kohl, S. A., Petersen, J., & Maier-Hein, K. H. (2021). "
+    #     "nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation. "
+    #     "Nature methods, 18(2), 203-211.\n#######################################################################\n")
 
     args = parser.parse_args()
 

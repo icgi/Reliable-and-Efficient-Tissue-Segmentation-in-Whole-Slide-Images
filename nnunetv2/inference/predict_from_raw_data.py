@@ -168,8 +168,11 @@ class nnUNetPredictor(object):
                                                                                        self.dataset_json['file_ending'])
         print(f'There are {len(list_of_lists_or_source_folder)} cases in the source folder')
         list_of_lists_or_source_folder = list_of_lists_or_source_folder[part_id::num_parts]
-        caseids = [os.path.basename(i[0])[:-(len(self.dataset_json['file_ending']) + 5)] for i in
+        # caseids = [os.path.basename(i[0])[:-(len(self.dataset_json['file_ending']) + 5)] for i in
+                #    list_of_lists_or_source_folder]
+        caseids = [os.path.basename(i[0])[:-(len(self.dataset_json['file_ending']))] for i in
                    list_of_lists_or_source_folder]
+
         print(
             f'I am process {part_id} out of {num_parts} (max process ID is {num_parts - 1}, we start counting with 0!)')
         print(f'There are {len(caseids)} cases that I would like to predict')

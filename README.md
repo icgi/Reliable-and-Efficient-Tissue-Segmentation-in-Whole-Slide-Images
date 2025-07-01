@@ -1,9 +1,56 @@
-# This is the code repo for our paper "Reliable and Efficient Tissue Segmentation in Whole-Slide
-Images" 
+# This is the code repo for our paper "Reliable and Efficient Tissue Segmentation in Whole-Slide Images" 
 
 This repo is a fork of the official nnU-Net with an additional inference file (predict_tissue.py) created for simple, straightforward inference without prior knowledge of how the pipeline works.
 
+## Getting started
+Firstly, download the models folder from this link: https://drive.google.com/file/d/1WL_eB88yu6gr89AMdF4ktmaXpCCHknxS/view?usp=sharing
+Place and unzip the folder inside the project folder like this:
 
+```plaintext
+project_root/                                                              
+├── models
+│   ├── trained_on_10um
+│   │   ├── checkpoint_10um.pth
+│   │   ├── dataset_fingerprint.json
+│   │   ├── dataset.json
+│   │   └── plans.json
+│   └── trained_on_10um_ResEnc
+│       ├── checkpoint_10um_ResEnc.pth
+│       ├── dataset_fingerprint.json
+│       ├── dataset.json
+│       └── plans.json
+├── ... 
+├── nnunetv2/                                                                                                
+└──dockerfiles/    
+```
+
+
+## Running inference for tissue segmentation
+
+```bash
+nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output
+```
+By default the standard nnUNetv2 model will be used. If you want to use the **residual encoder (ResEnc)** model, please use the **-resenc** flag. Please be aware that inference time will be slightly slower due to the complexity of the ResEnc network. 
+
+```bash
+nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output -resenc
+```
+
+We have modified the pipeline to output [0,255] instead of the original [0,1] output. If you still want to have your segmentation as **binary [0,1]**. please use the **--b01** flag during inference:
+
+```bash
+nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --b01
+```
+
+## Hardware requirements and inference times
+As a bare minimum, we recommend to run on a RTX3090 or better. For the ResEnc architecture, you will need at least 24GB of memory. We present average inference times for both models tested on an RTX3090:
+
+|  Model | Avg. infernce time | Scan count |
+| :------: | ------------------: | ----------: |
+| nnUNet |      1.42 seconds  |     100    |
+| nnUNet ResEnc |      3.09 seconds  |     100    |
+
+<!--
 ---
 
 # Welcome to the new nnU-Net!
@@ -150,3 +197,4 @@ prompting us to extend nnU-Net to more image formats and domains. Take a look [h
 nnU-Net is developed and maintained by the Applied Computer Vision Lab (ACVL) of [Helmholtz Imaging](http://helmholtz-imaging.de) 
 and the [Division of Medical Image Computing](https://www.dkfz.de/en/mic/index.php) at the 
 [German Cancer Research Center (DKFZ)](https://www.dkfz.de/en/index.html).
+-->

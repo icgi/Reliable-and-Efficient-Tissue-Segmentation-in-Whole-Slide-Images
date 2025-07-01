@@ -41,9 +41,16 @@ docker-compose run nnunet
 
 ## Running inference for tissue segmentation
 
+By default, the nnUNet model takes in a folder of PNG images and runs inference on them. However, we also have included support for sending a txt list file containing paths to WSIs for inference. This approach will automatically downsample the images to 10um in the inference loop.
+
 ```bash
-nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output
+nnUNetv2_predict_tissue -i /path/to/images/ -o /path/to/output
 ```
+or
+```bash
+nnUNetv2_predict_tissue -i /path/to/scan_list.txt -o /path/to/output
+```
+
 By default the standard nnUNetv2 model will be used. If you want to use the **residual encoder (ResEnc)** model, please use the **-resenc** flag. Please be aware that inference time will be slightly slower due to the complexity of the ResEnc network. 
 
 ```bash

@@ -43,16 +43,14 @@ nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --b01
 ```
 
 ## Hardware requirements and inference times
-As a bare minimum, we recommend to run on a RTX3090 or better. For the ResEnc architecture, you will need at least 24GB of memory.
-
-We present average inference times for both models on a RTX3090:
+As a bare minimum, we recommend to run on a RTX3090 or better. For the ResEnc architecture, you will need at least 24GB of memory. We present average inference times for both models tested on an RTX3090:
 
 |  Model | Avg. infernce time | Scan count |
 | :------: | ------------------: | ----------: |
 | nnUNet |      1.42 seconds  |     100    |
 | nnUNet ResEnc |      3.09 seconds  |     100    |
 
-
+<!--
 ---
 
 # Welcome to the new nnU-Net!
@@ -199,3 +197,4 @@ prompting us to extend nnU-Net to more image formats and domains. Take a look [h
 nnU-Net is developed and maintained by the Applied Computer Vision Lab (ACVL) of [Helmholtz Imaging](http://helmholtz-imaging.de) 
 and the [Division of Medical Image Computing](https://www.dkfz.de/en/mic/index.php) at the 
 [German Cancer Research Center (DKFZ)](https://www.dkfz.de/en/index.html).
+-->

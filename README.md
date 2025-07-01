@@ -1,5 +1,4 @@
-# This is the code repo for our paper "Reliable and Efficient Tissue Segmentation in Whole-Slide
-Images" 
+# This is the code repo for our paper "Reliable and Efficient Tissue Segmentation in Whole-Slide Images" 
 
 This repo is a fork of the official nnU-Net with an additional inference file (predict_tissue.py) created for simple, straightforward inference without prior knowledge of how the pipeline works.
 

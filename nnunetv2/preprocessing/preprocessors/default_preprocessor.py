@@ -27,7 +27,7 @@ from nnunetv2.preprocessing.resampling.default_resampling import compute_new_sha
 from nnunetv2.utilities.dataset_name_id_conversion import maybe_convert_to_dataset_name
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
-from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets
+from nnunetv2.utilities.utils import get_filenames_of_train_images_and_targets, image_from_scan
 
 from pathlib import Path
 import openslide
@@ -239,7 +239,8 @@ class DefaultPreprocessor(object):
         rw = plans_manager.image_reader_writer_class()
 
         if not ".png" in image_files[0]:
-            data, outup_name = convert_wsi_to_mpp(image_files[0])
+            data, info = image_from_scan(str(image_files[0]), 10, 'CCCCCC')
+            # data, outup_name = convert_wsi_to_mpp(image_files[0])
             data_properties = {'spacing': (999, 1, 1)}
             # data = remove_black_areas(data) if 'mrxs' in image_files[0] else data
             

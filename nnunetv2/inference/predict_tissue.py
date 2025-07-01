@@ -42,6 +42,7 @@ from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, Config
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
 
+from nnunetv2.utilities.utils import image_from_scan
 
 class TissueNNUnetPredictor(nnUNetPredictor):
     def __init__(self, *args, **kwargs):
@@ -243,93 +244,6 @@ class TissueNNUnetPredictor(nnUNetPredictor):
         # clear device cache
         empty_cache(self.device)
         return ret
-
-def convert_wsi_to_mpp(
-    filepaths,
-    desired_mpp: float = 16.3745,
-    output_dir: Path = None,
-    save_format: str = "tiff",
-    auto_crop: bool = True
-):
-    """
-    For each WSI in `filepaths`, open it, downsample/resample so that
-    the output has exactly `desired_mpp` microns per pixel, optionally auto-crop
-    to tissue, and save.
-
-    Args:
-        filepaths (List[str or Path]): list of WSI filenames.
-        desired_mpp (float): target microns-per-pixel.
-        output_dir (Path): directory where outputs go (defaults to cwd).
-        save_format (str): one of "tiff", "png", "jpeg", etc.
-        auto_crop (bool): if True, crops output to non-black tissue region.
-    """
-    output_dir = Path(output_dir or Path.cwd())
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    for fp in map(Path, filepaths):
-        if not fp.exists():
-            print(f"[WARN] File not found: {fp}")
-            continue
-
-        # file_name = convert_output_name(str(fp)).replace('.png', '')
-        out_name = f"{str(fp)}.{save_format}"
-        out_path = output_dir / out_name
-
-        if out_path.exists():
-            print(f"File already exists! Skipping...")
-            continue
-
-        try:
-            slide = openslide.OpenSlide(str(fp))
-
-            # 1) Read base MPP
-            exit()
-            mpp_x = slide.properties.get(openslide.PROPERTY_NAME_MPP_X) \
-                    or slide.properties.get("openslide.mpp-x")
-            if mpp_x is None:
-                print(f"[WARN] No MPP metadata for {fp.name}, skipping.")
-                continue
-            mpp_x = float(mpp_x)
-
-            # 2) Choose pyramid level closest to desired_mpp
-            downs = slide.level_downsamples  # floats
-            mpp_levels = [mpp_x * ds for ds in downs]
-            lvl = min(range(len(mpp_levels)), key=lambda i: abs(mpp_levels[i] - desired_mpp))
-            native_mpp = mpp_levels[lvl]
-            dims = slide.level_dimensions[lvl]
-
-            # 3) Read full region at that level
-            img_full = slide.read_region((0, 0), lvl, dims).convert("RGB")
-
-            # 4) Optional auto-crop to non-black
-            if auto_crop:
-                arr = np.array(img_full)
-                mask = np.any(arr != 0, axis=2)
-                ys, xs = np.where(mask)
-                if ys.size == 0:
-                    print(f"[WARN] No tissue detected in {fp.name}, saving full slide.")
-                    img_crop = img_full
-                else:
-                    y0, y1 = ys.min(), ys.max()
-                    x0, x1 = xs.min(), xs.max()
-                    # crop box = (left, upper, right, lower)
-                    img_crop = img_full.crop((x0, y0, x1+1, y1+1))
-            else:
-                img_crop = img_full
-
-            # 5) Rescale if needed to hit exactly desired_mpp
-            scale = native_mpp / desired_mpp
-            if abs(scale - 1.0) > 1e-3:
-                new_size = (int(img_crop.width * scale), int(img_crop.height * scale))
-                img_out = img_crop.resize(new_size, Image.LANCZOS)
-            else:
-                img_out = img_crop
-
-            # 6) Save result
-            img_out.save(str(out_path))
-            print(f"→ Saved {out_path}")
-        except Exception as e:
-            print(f'Skipping scan {str(fp)}: {e}')
 
 def predict_tissue_entry_point():
     import argparse

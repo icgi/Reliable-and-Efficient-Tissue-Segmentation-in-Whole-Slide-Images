@@ -1,6 +1,9 @@
 # This is the code repo for our paper "Reliable and Efficient Tissue Segmentation in Whole-Slide Images" 
 
-This repo is a fork of the official nnU-Net with an additional inference file (predict_tissue.py) created for simple, straightforward inference without prior knowledge of how the pipeline works.
+This repo is a fork of the official nnU-Net with an additional inference file (predict_tissue.py) created for simple, straightforward inference without prior knowledge of how the pipeline works. We have included minor modifications to the pipeline to simplify the inference run. This includes: 
+- Removing the need to add a modality ID at the end of input scans (some_scan_0000.png, some_scan_0001.png, etc.)
+- Outputting masks in a more user-friendly way ([0,255] instead of [0,1])
+- Removing the need to specify a model path, as this is done automatically.
 
 ## Getting started
 Firstly, download the models folder from this link: https://drive.google.com/file/d/1WL_eB88yu6gr89AMdF4ktmaXpCCHknxS/view?usp=sharing
@@ -24,6 +27,17 @@ project_root/
 └──dockerfiles/    
 ```
 
+## Setup
+To setup the environment, simply build and run the Docker project:
+
+```bash
+docker-compose build nnunet && docker-compose run nnunet
+```
+
+If you have already built a container, to avoid rebuilding every time, you can use:
+```bash
+docker-compose run nnunet
+```
 
 ## Running inference for tissue segmentation
 

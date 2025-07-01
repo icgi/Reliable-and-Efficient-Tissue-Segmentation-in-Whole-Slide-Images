@@ -48,9 +48,9 @@ As a bare minimum, we recommend to run on a RTX3090 or better. For the ResEnc ar
 We present average inference times for both models on a RTX3090:
 
 |  Model | Avg. infernce time | Scan count |
-| ------ | ------------------ | ---------- |
+| :------: | ------------------: | ----------: |
 | nnUNet |      1.42 seconds  |     100    |
-| ResEnc |      3.09 seconds  |     100    |
+| nnUNet ResEnc |      3.09 seconds  |     100    |
 
 
 ---

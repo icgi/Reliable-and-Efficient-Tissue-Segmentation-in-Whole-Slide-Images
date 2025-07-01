@@ -2,6 +2,31 @@
 
 This repo is a fork of the official nnU-Net with an additional inference file (predict_tissue.py) created for simple, straightforward inference without prior knowledge of how the pipeline works.
 
+## Getting started
+Firstly, download the models folder from this link: https://drive.google.com/file/d/1WL_eB88yu6gr89AMdF4ktmaXpCCHknxS/view?usp=sharing
+Place and unzip the folder inside the project folder like this:
+
+```plaintext
+project_root/                                                              
+├── models
+│   ├── trained_on_10um
+│   │   ├── checkpoint_10um.pth
+│   │   ├── dataset_fingerprint.json
+│   │   ├── dataset.json
+│   │   └── plans.json
+│   └── trained_on_10um_ResEnc
+│       ├── checkpoint_10um_ResEnc.pth
+│       ├── dataset_fingerprint.json
+│       ├── dataset.json
+│       └── plans.json
+├── ... 
+├── nnunetv2/                                                                                                
+└──dockerfiles/    
+```
+
+
+
+
 
 ---
 

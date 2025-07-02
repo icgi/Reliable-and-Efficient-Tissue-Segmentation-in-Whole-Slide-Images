@@ -44,6 +44,13 @@ from nnunetv2.utilities.label_handling.label_handling import determine_num_input
 
 from nnunetv2.utilities.utils import image_from_scan
 
+
+from PIL import PngImagePlugin
+
+LARGE_ENOUGH_NUMBER = 1000
+PngImagePlugin.MAX_TEXT_CHUNK = LARGE_ENOUGH_NUMBER * (1024**2)
+
+
 class TissueNNUnetPredictor(nnUNetPredictor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -38,9 +38,10 @@ project_root/
 ```
 
 ## Setup
-To setup the environment, simply build and run the Docker project:
+To set up the environment, simply build and run the Docker project within the dockerfiles folder:
 
 ```bash
+cd /path/to/dockerfiles/
 docker-compose build nnunet && docker-compose run nnunet
 ```
 

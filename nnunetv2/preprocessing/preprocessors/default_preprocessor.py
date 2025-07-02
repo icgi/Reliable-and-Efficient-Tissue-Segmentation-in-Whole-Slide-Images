@@ -34,113 +34,6 @@ import openslide
 from PIL import Image
 import cv2
 
-def convert_output_name(slide):
-    dataset = slide.split('/')[4]
-    slide = Path(slide)
-    name = ''
-
-    if dataset in ['Q64', 'S77', 'R75', 'R27']:
-        scanner = slide.parent.parent.name
-
-        if scanner == 'Aperio' or scanner == 'AP':
-            start_part = f'LEICA_APERIO_{dataset}___LEICA_APERIO'
-            name = f'{start_part}___{slide.stem}.png'
-        elif scanner == 'XR':
-            start_part = f'HAMAMATSU_NANOZOOMER_{dataset}___HAMAMATSU_NANOZOOMER'
-            name = f'{start_part}___{slide.stem}.png'
-
-    elif dataset in ['S20_SM', 'S98']:
-        start_part = f'3DHISTECH_PANNORAMIC_{dataset}___3DHISTECH_PANNORAMIC'
-        name = f'{start_part}___{slide.stem}.png'
-    elif dataset == 'T18':
-            start_part = f'HAMAMATSU_NANOZOOMER_{dataset}___HAMAMATSU_NANOZOOMER'
-            name = f'{start_part}___{slide.stem}.png'
-
-    return name
-
-def remove_black_areas(file):
-
-    image = Image.open(file).convert('RGB')
-    arr = np.array(image, dtype=np.uint8)
-
-    black_mask = np.all(arr == 0, axis=2).astype(np.uint8)
-
-    kernel = np.ones((7,7), np.uint8)
-    bg_mask = cv2.dilate(black_mask, kernel, iterations=1).astype(bool)
-
-    arr[bg_mask] = [255, 255, 255]
-
-    out_file = Image.fromarray(arr)
-
-    return np.float32(out_file)
-
-def convert_wsi_to_mpp(
-    filepaths,
-    desired_mpp: float = 10,
-    auto_crop: bool = True
-):
-    """
-    For each WSI in `filepaths`, open it, downsample/resample so that
-    the output has exactly `desired_mpp` microns per pixel, optionally auto-crop
-    to tissue, and save.
-
-    Args:
-        filepaths (List[str or Path]): list of WSI filenames.
-        desired_mpp (float): target microns-per-pixel.
-        output_dir (Path): directory where outputs go (defaults to cwd).
-        save_format (str): one of "tiff", "png", "jpeg", etc.
-        auto_crop (bool): if True, crops output to non-black tissue region.
-    """
-
-
-    file_name = convert_output_name(str(filepaths)).replace('.png', '')
-
-    slide = openslide.OpenSlide(str(filepaths))
-
-    # 1) Read base MPP
-    mpp_x = slide.properties.get(openslide.PROPERTY_NAME_MPP_X) \
-            or slide.properties.get("openslide.mpp-x")
-    if mpp_x is None:
-        print(f"[WARN] No MPP metadata for {filepaths.name}, skipping.")
-        return
-    mpp_x = float(mpp_x)
-
-    # 2) Choose pyramid level closest to desired_mpp
-    downs = slide.level_downsamples  # floats
-    mpp_levels = [mpp_x * ds for ds in downs]
-    lvl = min(range(len(mpp_levels)), key=lambda i: abs(mpp_levels[i] - desired_mpp))
-    native_mpp = mpp_levels[lvl]
-    dims = slide.level_dimensions[lvl]
-
-    # 3) Read full region at that level
-    img_full = slide.read_region((0, 0), lvl, dims).convert("RGB")
-
-    # 4) Optional auto-crop to non-black
-    if auto_crop:
-        arr = np.array(img_full)
-        mask = np.any(arr != 0, axis=2)
-        ys, xs = np.where(mask)
-        if ys.size == 0:
-            print(f"[WARN] No tissue detected in {filepaths.name}, saving full slide.")
-            img_crop = img_full
-        else:
-            y0, y1 = ys.min(), ys.max()
-            x0, x1 = xs.min(), xs.max()
-            # crop box = (left, upper, right, lower)
-            img_crop = img_full.crop((x0, y0, x1+1, y1+1))
-    else:
-        img_crop = img_full
-
-    # 5) Rescale if needed to hit exactly desired_mpp
-    scale = native_mpp / desired_mpp
-    if abs(scale - 1.0) > 1e-3:
-        new_size = (int(img_crop.width * scale), int(img_crop.height * scale))
-        img_out = img_crop.resize(new_size, Image.LANCZOS)
-    else:
-        img_out = img_crop
-
-    return np.float32(img_out), file_name
-
 class DefaultPreprocessor(object):
     def __init__(self, verbose: bool = True):
         self.verbose = verbose
@@ -239,10 +132,9 @@ class DefaultPreprocessor(object):
         rw = plans_manager.image_reader_writer_class()
 
         if not ".png" in image_files[0]:
+            print(f"Downsampling {image_files[0]}")
             data, info = image_from_scan(str(image_files[0]), 10, 'CCCCCC')
-            # data, outup_name = convert_wsi_to_mpp(image_files[0])
             data_properties = {'spacing': (999, 1, 1)}
-            # data = remove_black_areas(data) if 'mrxs' in image_files[0] else data
             
             # Convert data to right order
             data = np.moveaxis(data, -1, 0)

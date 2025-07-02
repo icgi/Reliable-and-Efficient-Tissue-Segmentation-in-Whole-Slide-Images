@@ -6,7 +6,17 @@ This repo is a fork of the official nnU-Net with an additional inference file (p
 - Removing the need to specify a model path, as this is done automatically.
 
 ## Getting started
-Firstly, download the models folder from this link: https://drive.google.com/file/d/1WL_eB88yu6gr89AMdF4ktmaXpCCHknxS/view?usp=sharing
+Firstly, download the models folder: 
+
+```bash
+pip install gdown
+gdown 1WL_eB88yu6gr89AMdF4ktmaXpCCHknxS
+unzip model.zip
+```
+
+Alternatively, you can download it directly from the gdrive link:
+
+https://drive.google.com/file/d/1WL_eB88yu6gr89AMdF4ktmaXpCCHknxS/view?usp=sharing
 Place and unzip the folder inside the project folder like this:
 
 ```plaintext

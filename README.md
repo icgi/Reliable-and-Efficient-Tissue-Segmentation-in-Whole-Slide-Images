@@ -62,6 +62,16 @@ or
 nnUNetv2_predict_tissue -i /path/to/scan_list.txt -o /path/to/output
 ```
 
+The layout for the text file should look like this:
+```text
+/path/to/scan1.format
+/path/to/scan2.format
+/path/to/scan3.format
+/path/to/scan4.format
+...
+```
+
+
 By default the standard nnUNetv2 model will be used. If you want to use the **residual encoder (ResEnc)** model, please use the **-resenc** flag. Please be aware that inference time will be slightly slower due to the complexity of the ResEnc network. 
 
 ```bash
@@ -75,11 +85,11 @@ nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --b01
 ```
 
 ## Hardware requirements and inference times
-As a bare minimum, we recommend to run on a RTX3090 or better. For the ResEnc architecture, you will need at least 24GB of memory. We present average inference times for both models tested on an RTX3090:
+We present average inference times for both models tested on an RTX3090 with 24GB of GPU memory. For the ResEnc architecture, you will need a minimum of 24GB of GPU memory:
 
 |  Model | Avg. infernce time | Scan count |
 | :------: | ------------------: | ----------: |
-| nnUNet |      1.42 seconds  |     100    |
+| nnUNet        |      1.42 seconds  |     100    |
 | nnUNet ResEnc |      3.09 seconds  |     100    |
 
 <!--

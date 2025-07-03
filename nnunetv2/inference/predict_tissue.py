@@ -187,6 +187,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                                   output_folder_or_list_of_truncated_output_files,
                                   save_probabilities: bool = False,
                                   overwrite: bool = True,
+                                  suffix: str = None,
                                   num_processes_preprocessing: int = default_num_processes,
                                   num_processes_segmentation_export: int = default_num_processes,
                                   folder_with_segs_from_prev_stage: str = None,
@@ -198,11 +199,12 @@ class TissueNNUnetPredictor(nnUNetPredictor):
         maybe_mkdir_p(output_folder)
 
 
-        if list_of_lists_or_source_folder.lower().endswith('.txt'):
+        if list_of_lists_or_source_folder.lower().endswith('.txt') or suffix is not None:
             print(f'[TissueNNUnetPredictor] Streaming WSI fully in memory...')
-            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01)
+            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, suffix, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01)
 
             return
+
 
         print(f'[TissueNNUnetPredictor] Detected img folder; using stock nnU-Net pipeline (blocking).')
         super().predict_from_files(
@@ -303,12 +305,18 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             self,
             wsi_txt: str,
             output_folder: str,
+            suffix: str,
             overwrite: bool,
             cpu_workers: int = 8,
             binary_01 = False
     ):
-        with open(wsi_txt) as f:
-            wsi_paths = [ln.strip() for ln in f if ln.strip()] 
+        if suffix is None:
+            with open(wsi_txt) as f:
+                wsi_paths = [ln.strip() for ln in f if ln.strip()] 
+        else:
+            wsi_txt = Path(wsi_txt)
+            wsi_paths = list(wsi_txt.rglob(f'*{suffix}'))
+            wsi_paths = [str(wsi) for wsi in wsi_paths]
 
         print(f"Found {len(wsi_paths)} scans")
 
@@ -371,6 +379,8 @@ def predict_tissue_entry_point():
                         help='Converts output masks to binary 0,1 instead of standard 0,255')
     parser.add_argument('-resenc', action='store_true', required=False, default=False,
                         help='Use the Residual encoder nnUNet (new recommended base model from author)')
+    parser.add_argument('-suffix', required=False, default=False,
+                        help='Add suffix for what scanner type to look for when running inference on WSIs.')
     ########################################################################################
 
     parser.add_argument('-step_size', type=float, required=False, default=0.5,
@@ -480,6 +490,7 @@ def predict_tissue_entry_point():
                                                            args.o,
                                                            save_probabilities=False,
                                                            overwrite=not args.continue_prediction,
+                                                           suffix=args.suffix,
                                                            num_processes_preprocessing=args.npp,
                                                            num_processes_segmentation_export=args.nps,
                                                            folder_with_segs_from_prev_stage=args.prev_stage_predictions,

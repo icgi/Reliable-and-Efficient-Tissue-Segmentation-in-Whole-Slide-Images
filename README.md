@@ -5,6 +5,23 @@ This repo is a fork of the official nnU-Net with an additional inference file (p
 - Outputting masks in a more user-friendly way ([0,255] instead of [0,1])
 - Removing the need to specify a model path, as this is done automatically.
 
+The model assumes that the input images are downsampled to 10 μm per pixel. The network is image dimension invariance by nature, but we can not guarantee quality segmentation if used at other resolutions.
+
+### In our paper, we show the strong performance of our model and compare it to other baselines: 
+![box_plot_of_dice_scores_logit_imagesTs (1)](https://github.com/user-attachments/assets/24297616-61a2-4319-b95d-a04aecd16082)
+
+| Resolution (um/px) |     Model    | Dice score (%) | Inference time (s) |
+| -----------------: | :----------- | -------------: | -----------------: |
+|          5         | nnU-Net      |    98.51       |          5.88      |
+|          5         | ResEnc       |    98.96       |         11.70      |
+|         10         | nnU-Net      |    98.48       |          1.42      |
+|         10         | ResEnc       |    98.87       |          3.09      |
+|         20         | nnU-Net      |    98.46       |          0.44      |
+|         20         | ResEnc       |    98.26       |          0.89      |
+|          8         | Pathprofiler |    94.40       |          2.25      |
+
+
+
 ## Getting started
 Firstly, download the models folder: 
 

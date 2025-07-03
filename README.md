@@ -84,6 +84,12 @@ We have modified the pipeline to output [0,255] instead of the original [0,1] ou
 nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --b01
 ```
 
+If you have an incomplete run of segmentation masks, you can continue where the model stopped by running the continue_prediction flag.
+
+```bash
+nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --continue_prediction
+```
+
 If you plan on running inference on a folder of png images, you can use the help flag to check extra commands. However, some of these features are not yet supported for the txt input. 
 
 ```bash

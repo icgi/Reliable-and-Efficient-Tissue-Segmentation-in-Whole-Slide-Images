@@ -88,6 +88,11 @@ The layout for the text file should look like this:
 ...
 ```
 
+Alternatively, you can specify a path to WSIs with the inclusion of the file ending suffix (.svs, .ndpi, etc.).
+
+```bash
+nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -suffix suffx_name
+```
 
 By default the standard nnUNetv2 model will be used. If you want to use the **residual encoder (ResEnc)** model, please use the **-resenc** flag. Please be aware that inference time will be slightly slower due to the complexity of the ResEnc network. 
 

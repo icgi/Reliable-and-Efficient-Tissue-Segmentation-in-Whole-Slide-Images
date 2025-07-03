@@ -24,7 +24,7 @@ from batchgenerators.utilities.file_and_folder_operations import load_json, join
     save_json
 
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.inference.export_prediction import export_prediction_from_logits, \
@@ -42,13 +42,32 @@ from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, Config
 from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
 
-from nnunetv2.utilities.utils import image_from_scan
-
 
 from PIL import PngImagePlugin
 
 LARGE_ENOUGH_NUMBER = 1000
 PngImagePlugin.MAX_TEXT_CHUNK = LARGE_ENOUGH_NUMBER * (1024**2)
+
+
+from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
+from batchgenerators.utilities.file_and_folder_operations import load_pickle
+
+_WSI_EXTS = ('.svs', '.scn', '.ndpi', '.mrxs', '.bif', '.tiff', '.tif')
+
+
+def _is_wsi(fname: str) -> bool:
+    return fname.lower().endswith(_WSI_EXTS)
+
+def _preprocess_to_memory(case_id: str,
+                          wsi_path: str,
+                          pp: DefaultPreprocessor,
+                          plans, cfg, ds_json):
+    data, _, props = pp.run_case([wsi_path], None, plans, cfg, ds_json)
+    return case_id, data, props
+
+
+from queue import Queue
+from threading import Thread
 
 
 class TissueNNUnetPredictor(nnUNetPredictor):
@@ -108,67 +127,156 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             print('Using torch.compile')
             self.network = torch.compile(self.network)
 
+    # def predict_tissue_from_files(self,
+    #                        list_of_lists_or_source_folder: Union[str, List[List[str]]],
+    #                        output_folder_or_list_of_truncated_output_files: Union[str, None, List[str]],
+    #                        save_probabilities: bool = False,
+    #                        overwrite: bool = True,
+    #                        num_processes_preprocessing: int = default_num_processes,
+    #                        num_processes_segmentation_export: int = default_num_processes,
+    #                        folder_with_segs_from_prev_stage: str = None,
+    #                        num_parts: int = 1,
+    #                        part_id: int = 0,
+    #                        binary_01: bool = False):
+    #     """
+    #     This is nnU-Net's default function for making predictions. It works best for batch predictions
+    #     (predicting many images at once).
+    #     """
+    #     if isinstance(output_folder_or_list_of_truncated_output_files, str):
+    #         output_folder = output_folder_or_list_of_truncated_output_files
+    #     elif isinstance(output_folder_or_list_of_truncated_output_files, list):
+    #         output_folder = os.path.dirname(output_folder_or_list_of_truncated_output_files[0])
+    #     else:
+    #         output_folder = None
+
+    #     ########################
+    #     # let's store the input arguments so that its clear what was used to generate the prediction
+    #     if output_folder is not None:
+    #         my_init_kwargs = {}
+    #         for k in inspect.signature(self.predict_from_files).parameters.keys():
+    #             my_init_kwargs[k] = locals()[k]
+    #         my_init_kwargs = deepcopy(
+    #             my_init_kwargs)  # let's not unintentionally change anything in-place. Take this as a
+    #         recursive_fix_for_json_export(my_init_kwargs)
+    #         maybe_mkdir_p(output_folder)
+    #         save_json(my_init_kwargs, join(output_folder, 'predict_from_raw_data_args.json'))
+
+    #         # we need these two if we want to do things with the predictions like for example apply postprocessing
+    #         save_json(self.dataset_json, join(output_folder, 'dataset.json'), sort_keys=False)
+    #         save_json(self.plans_manager.plans, join(output_folder, 'plans.json'), sort_keys=False)
+    #     #######################
+
+    #     # check if we need a prediction from the previous stage
+    #     if self.configuration_manager.previous_stage_name is not None:
+    #         assert folder_with_segs_from_prev_stage is not None, \
+    #             f'The requested configuration is a cascaded network. It requires the segmentations of the previous ' \
+    #             f'stage ({self.configuration_manager.previous_stage_name}) as input. Please provide the folder where' \
+    #             f' they are located via folder_with_segs_from_prev_stage'
+
+    #     # sort out input and output filenames
+    #     list_of_lists_or_source_folder, output_filename_truncated, seg_from_prev_stage_files = \
+    #         self._manage_input_and_output_lists(list_of_lists_or_source_folder,
+    #                                             output_folder_or_list_of_truncated_output_files,
+    #                                             folder_with_segs_from_prev_stage, overwrite, part_id, num_parts,
+    #                                             save_probabilities)
+    #     if len(list_of_lists_or_source_folder) == 0:
+    #         return
+
+    #     data_iterator = self._internal_get_data_iterator_from_lists_of_filenames(list_of_lists_or_source_folder,
+    #                                                                              seg_from_prev_stage_files,
+    #                                                                              output_filename_truncated,
+    #                                                                              num_processes_preprocessing)
+
+    #     return self.predict_tissue_from_data_iterator(data_iterator, save_probabilities, num_processes_segmentation_export, binary_01)
+    def _stream_wsi_in_memory(self,
+                            wsi_txt: str,
+                            output_folder: str,
+                            cpu_workers: int,
+                            binary_01: bool):
+        with open(wsi_txt) as f:
+            wsi_paths = [ln.strip() for ln in f if ln.strip()]
+
+        pp = DefaultPreprocessor(verbose=False)
+        plans, cfg, ds_json = self.plans_manager, self.configuration_manager, self.dataset_json
+
+        def cpu_workers(case_id, wsi_path):
+            data, _, props = pp.run_case([wsi_path], None, plans, cfg, ds_json)
+            Q.put((case_id, data, props), blocks=True)
+
+
+        def gpu_consumer():
+            while True:
+                item = Q.get()
+                if item is None:
+                    break
+
+                case_id, np_data, props = item
+                logits = self.predict_logits_from_preprocessed_data(
+                    torch.from_numpy(np_data).to(self.device)
+                ).cpu()
+
+                png_file = os.path.join(output_folder, f"{case_id}.png")
+                export_prediction_from_logits(
+                    logits, props, cfg, plans, ds_json,
+                    png_file, save_probabilities=False, binary_01=binary_01
+                )
+
+                del np_data, logits
+
+
+                torch.cuda.empty_cache()
+                Q.task_done()
+
+
+        Q = Queue(maxsize=2)
+
+        gthread = Thread(targer=gpu_consumer, daemon=True); gthread.start()
+
+
+        with ThreadPoolExecutor(max_workers=cpu_workers) as pool:
+            futures = [pool.submit(cpu_workers, Path(p).stem, p) for p in wsi_paths]
+            for f in as_completed(futures):
+                f.result()
+
+
+        Q.join()
+        Q.put(None)
+        gthread.join()
+
     def predict_tissue_from_files(self,
-                           list_of_lists_or_source_folder: Union[str, List[List[str]]],
-                           output_folder_or_list_of_truncated_output_files: Union[str, None, List[str]],
-                           save_probabilities: bool = False,
-                           overwrite: bool = True,
-                           num_processes_preprocessing: int = default_num_processes,
-                           num_processes_segmentation_export: int = default_num_processes,
-                           folder_with_segs_from_prev_stage: str = None,
-                           num_parts: int = 1,
-                           part_id: int = 0,
-                           binary_01: bool = False):
-        """
-        This is nnU-Net's default function for making predictions. It works best for batch predictions
-        (predicting many images at once).
-        """
-        if isinstance(output_folder_or_list_of_truncated_output_files, str):
-            output_folder = output_folder_or_list_of_truncated_output_files
-        elif isinstance(output_folder_or_list_of_truncated_output_files, list):
-            output_folder = os.path.dirname(output_folder_or_list_of_truncated_output_files[0])
-        else:
-            output_folder = None
+                                  list_of_lists_or_source_folder,
+                                  output_folder_or_list_of_truncated_output_files,
+                                  save_probabilities: bool = False,
+                                  overwrite: bool = True,
+                                  num_processes_preprocessing: int = default_num_processes,
+                                  num_processes_segmentation_export: int = default_num_processes,
+                                  folder_with_segs_from_prev_stage: str = None,
+                                  num_parts: int = 1,
+                                  part_id: int = 0,
+                                  binary_01: bool = False):
+        
+        output_folder = output_folder_or_list_of_truncated_output_files
+        maybe_mkdir_p(output_folder)
 
-        ########################
-        # let's store the input arguments so that its clear what was used to generate the prediction
-        if output_folder is not None:
-            my_init_kwargs = {}
-            for k in inspect.signature(self.predict_from_files).parameters.keys():
-                my_init_kwargs[k] = locals()[k]
-            my_init_kwargs = deepcopy(
-                my_init_kwargs)  # let's not unintentionally change anything in-place. Take this as a
-            recursive_fix_for_json_export(my_init_kwargs)
-            maybe_mkdir_p(output_folder)
-            save_json(my_init_kwargs, join(output_folder, 'predict_from_raw_data_args.json'))
 
-            # we need these two if we want to do things with the predictions like for example apply postprocessing
-            save_json(self.dataset_json, join(output_folder, 'dataset.json'), sort_keys=False)
-            save_json(self.plans_manager.plans, join(output_folder, 'plans.json'), sort_keys=False)
-        #######################
+        if list_of_lists_or_source_folder.lower().endswith('.txt'):
+            print(f'[TissueNNUnetPredictor] Streaming WSI fully in memory...')
+            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, cpu_workers=num_processes_preprocessing, binary_01=binary_01)
 
-        # check if we need a prediction from the previous stage
-        if self.configuration_manager.previous_stage_name is not None:
-            assert folder_with_segs_from_prev_stage is not None, \
-                f'The requested configuration is a cascaded network. It requires the segmentations of the previous ' \
-                f'stage ({self.configuration_manager.previous_stage_name}) as input. Please provide the folder where' \
-                f' they are located via folder_with_segs_from_prev_stage'
-
-        # sort out input and output filenames
-        list_of_lists_or_source_folder, output_filename_truncated, seg_from_prev_stage_files = \
-            self._manage_input_and_output_lists(list_of_lists_or_source_folder,
-                                                output_folder_or_list_of_truncated_output_files,
-                                                folder_with_segs_from_prev_stage, overwrite, part_id, num_parts,
-                                                save_probabilities)
-        if len(list_of_lists_or_source_folder) == 0:
             return
 
-        data_iterator = self._internal_get_data_iterator_from_lists_of_filenames(list_of_lists_or_source_folder,
-                                                                                 seg_from_prev_stage_files,
-                                                                                 output_filename_truncated,
-                                                                                 num_processes_preprocessing)
-
-        return self.predict_tissue_from_data_iterator(data_iterator, save_probabilities, num_processes_segmentation_export, binary_01)
+        print(f'[TissueNNUnetPredictor] Detected img folder; using stock nnU-Net pipeline (blocking).')
+        super().predict_from_files(
+            list_of_lists_or_source_folder,
+            output_folder,
+            save_probabilities,
+            overwrite,
+            num_processes_preprocessing,
+            num_processes_segmentation_export,
+            folder_with_segs_from_prev_stage,
+            num_parts,
+            part_id,
+        )
 
     def predict_tissue_from_data_iterator(self,
                                    data_iterator,
@@ -251,6 +359,45 @@ class TissueNNUnetPredictor(nnUNetPredictor):
         # clear device cache
         empty_cache(self.device)
         return ret
+
+    def predict_wsi_streaming(
+            self,
+            wsi_txt: str,
+            output_folder: str,
+            cpu_workers: int = 8,
+            binary_01 = False
+    ):
+        with open(wsi_txt) as f:
+            wsi_paths = [ln.strip() for ln in f if ln.strip()] 
+
+        pp = DefaultPreprocessor(verbose=False)
+        plans, cfg, ds_json = self.plans_manager, self.configuration_manager, self.dataset_json
+
+
+        with ThreadPoolExecutor(max_workers=cpu_workers) as cpu_pool:
+            futures = [cpu_pool.submit(_preprocess_to_memory,
+                                       Path(p).stem, p,
+                                       pp, plans, cfg, ds_json)
+                                    for p in wsi_paths]
+
+            for fut in as_completed(futures):
+                cid, np_data, props = fut.result()
+
+                logits = self.predict_logits_from_preprocessed_data(
+                    torch.from_numpy(np_data).to(self.device)
+                ).cpu()
+
+
+                png_file = os.path.join(output_folder, f"{cid}.png")
+                export_prediction_from_logits(
+                    logits, props, cfg, plans, ds_json,
+                    png_file, save_probabilities=False, binary_01=binary_01
+                )
+
+                del np_data, logits
+                torch.cuda.empty_cache()
+        
+       
 
 def predict_tissue_entry_point():
     import argparse
@@ -377,7 +524,7 @@ def predict_tissue_entry_point():
     predicted_segmentations = predictor.predict_tissue_from_files(args.i,
                                                            args.o,
                                                            save_probabilities=False,
-                                                           overwrite=True,
+                                                           overwrite=not args.continue_prediction,
                                                            num_processes_preprocessing=args.npp,
                                                            num_processes_segmentation_export=args.nps,
                                                            folder_with_segs_from_prev_stage=args.prev_stage_predictions,

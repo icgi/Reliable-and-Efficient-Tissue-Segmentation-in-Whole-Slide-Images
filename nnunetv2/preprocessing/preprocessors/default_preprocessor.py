@@ -132,13 +132,14 @@ class DefaultPreprocessor(object):
         rw = plans_manager.image_reader_writer_class()
 
         if not ".png" in image_files[0]:
-            print(f"Downsampling {image_files[0]}")
+            print(f"Downsampling {image_files[0]}...")
             data, info = image_from_scan(str(image_files[0]), 10, 'CCCCCC')
+            print(f"Completed downsampling of {image_files[0]}")
             data_properties = {'spacing': (999, 1, 1)}
             
             # Convert data to right order
             data = np.moveaxis(data, -1, 0)
-            data = np.moveaxis(data, 1, 2)
+            # data = np.moveaxis(data, 1, 2)
             data = data[:, np.newaxis, :, :]
 
         else:
@@ -159,7 +160,6 @@ class DefaultPreprocessor(object):
                       plans_manager: PlansManager, configuration_manager: ConfigurationManager,
                       dataset_json: Union[dict, str]):
         data, seg, properties = self.run_case(image_files, seg_file, plans_manager, configuration_manager, dataset_json)
-        # print('dtypes', data.dtype, seg.dtype)
         np.savez_compressed(output_filename_truncated + '.npz', data=data, seg=seg)
         write_pickle(properties, output_filename_truncated + '.pkl')
 

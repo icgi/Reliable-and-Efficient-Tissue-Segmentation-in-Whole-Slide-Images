@@ -52,11 +52,6 @@ PngImagePlugin.MAX_TEXT_CHUNK = LARGE_ENOUGH_NUMBER * (1024**2)
 from nnunetv2.preprocessing.preprocessors.default_preprocessor import DefaultPreprocessor
 from batchgenerators.utilities.file_and_folder_operations import load_pickle
 
-_WSI_EXTS = ('.svs', '.scn', '.ndpi', '.mrxs', '.bif', '.tiff', '.tif')
-
-
-def _is_wsi(fname: str) -> bool:
-    return fname.lower().endswith(_WSI_EXTS)
 
 def _preprocess_to_memory(case_id: str,
                           wsi_path: str,
@@ -65,9 +60,6 @@ def _preprocess_to_memory(case_id: str,
     data, _, props = pp.run_case([wsi_path], None, plans, cfg, ds_json)
     return case_id, data, props
 
-
-from queue import Queue
-from threading import Thread
 
 
 class TissueNNUnetPredictor(nnUNetPredictor):
@@ -188,60 +180,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
     #                                                                              num_processes_preprocessing)
 
     #     return self.predict_tissue_from_data_iterator(data_iterator, save_probabilities, num_processes_segmentation_export, binary_01)
-    def _stream_wsi_in_memory(self,
-                            wsi_txt: str,
-                            output_folder: str,
-                            cpu_workers: int,
-                            binary_01: bool):
-        with open(wsi_txt) as f:
-            wsi_paths = [ln.strip() for ln in f if ln.strip()]
 
-        pp = DefaultPreprocessor(verbose=False)
-        plans, cfg, ds_json = self.plans_manager, self.configuration_manager, self.dataset_json
-
-        def cpu_workers(case_id, wsi_path):
-            data, _, props = pp.run_case([wsi_path], None, plans, cfg, ds_json)
-            Q.put((case_id, data, props), blocks=True)
-
-
-        def gpu_consumer():
-            while True:
-                item = Q.get()
-                if item is None:
-                    break
-
-                case_id, np_data, props = item
-                logits = self.predict_logits_from_preprocessed_data(
-                    torch.from_numpy(np_data).to(self.device)
-                ).cpu()
-
-                png_file = os.path.join(output_folder, f"{case_id}.png")
-                export_prediction_from_logits(
-                    logits, props, cfg, plans, ds_json,
-                    png_file, save_probabilities=False, binary_01=binary_01
-                )
-
-                del np_data, logits
-
-
-                torch.cuda.empty_cache()
-                Q.task_done()
-
-
-        Q = Queue(maxsize=2)
-
-        gthread = Thread(targer=gpu_consumer, daemon=True); gthread.start()
-
-
-        with ThreadPoolExecutor(max_workers=cpu_workers) as pool:
-            futures = [pool.submit(cpu_workers, Path(p).stem, p) for p in wsi_paths]
-            for f in as_completed(futures):
-                f.result()
-
-
-        Q.join()
-        Q.put(None)
-        gthread.join()
 
     def predict_tissue_from_files(self,
                                   list_of_lists_or_source_folder,
@@ -261,7 +200,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
 
         if list_of_lists_or_source_folder.lower().endswith('.txt'):
             print(f'[TissueNNUnetPredictor] Streaming WSI fully in memory...')
-            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, cpu_workers=num_processes_preprocessing, binary_01=binary_01)
+            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01)
 
             return
 
@@ -364,11 +303,26 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             self,
             wsi_txt: str,
             output_folder: str,
+            overwrite: bool,
             cpu_workers: int = 8,
             binary_01 = False
     ):
         with open(wsi_txt) as f:
             wsi_paths = [ln.strip() for ln in f if ln.strip()] 
+
+        print(f"Found {len(wsi_paths)} scans")
+
+        if not overwrite:
+            files_for_inference = []
+            for wp in wsi_paths:
+                filename = os.path.basename(wp).split('.')[0]
+                if not os.path.exists(f'{output_folder}/{filename}.png'):
+                    files_for_inference.append(wp)
+
+            wsi_paths = files_for_inference
+            print(f"Overwrite is set to False. Running inference on remaining {len(wsi_paths)} scans.")
+        else:
+            print(f"Running inference on {len(wsi_paths)} scans.")
 
         pp = DefaultPreprocessor(verbose=False)
         plans, cfg, ds_json = self.plans_manager, self.configuration_manager, self.dataset_json
@@ -383,12 +337,13 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             for fut in as_completed(futures):
                 cid, np_data, props = fut.result()
 
+                print(f"Now predicting {cid}")
                 logits = self.predict_logits_from_preprocessed_data(
                     torch.from_numpy(np_data).to(self.device)
                 ).cpu()
 
 
-                png_file = os.path.join(output_folder, f"{cid}.png")
+                png_file = os.path.join(output_folder, cid)
                 export_prediction_from_logits(
                     logits, props, cfg, plans, ds_json,
                     png_file, save_probabilities=False, binary_01=binary_01

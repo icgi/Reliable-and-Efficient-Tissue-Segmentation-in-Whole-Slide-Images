@@ -134,7 +134,6 @@ class DefaultPreprocessor(object):
         if not ".png" in image_files[0]:
             print(f"Downsampling {image_files[0]}...")
             data, info = image_from_scan(str(image_files[0]), 10, 'CCCCCC')
-            print(f"Completed downsampling of {image_files[0]}")
             data_properties = {'spacing': (999, 1, 1)}
             
             # Convert data to right order

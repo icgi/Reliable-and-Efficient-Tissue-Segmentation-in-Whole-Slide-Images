@@ -119,75 +119,14 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             print('Using torch.compile')
             self.network = torch.compile(self.network)
 
-    # def predict_tissue_from_files(self,
-    #                        list_of_lists_or_source_folder: Union[str, List[List[str]]],
-    #                        output_folder_or_list_of_truncated_output_files: Union[str, None, List[str]],
-    #                        save_probabilities: bool = False,
-    #                        overwrite: bool = True,
-    #                        num_processes_preprocessing: int = default_num_processes,
-    #                        num_processes_segmentation_export: int = default_num_processes,
-    #                        folder_with_segs_from_prev_stage: str = None,
-    #                        num_parts: int = 1,
-    #                        part_id: int = 0,
-    #                        binary_01: bool = False):
-    #     """
-    #     This is nnU-Net's default function for making predictions. It works best for batch predictions
-    #     (predicting many images at once).
-    #     """
-    #     if isinstance(output_folder_or_list_of_truncated_output_files, str):
-    #         output_folder = output_folder_or_list_of_truncated_output_files
-    #     elif isinstance(output_folder_or_list_of_truncated_output_files, list):
-    #         output_folder = os.path.dirname(output_folder_or_list_of_truncated_output_files[0])
-    #     else:
-    #         output_folder = None
-
-    #     ########################
-    #     # let's store the input arguments so that its clear what was used to generate the prediction
-    #     if output_folder is not None:
-    #         my_init_kwargs = {}
-    #         for k in inspect.signature(self.predict_from_files).parameters.keys():
-    #             my_init_kwargs[k] = locals()[k]
-    #         my_init_kwargs = deepcopy(
-    #             my_init_kwargs)  # let's not unintentionally change anything in-place. Take this as a
-    #         recursive_fix_for_json_export(my_init_kwargs)
-    #         maybe_mkdir_p(output_folder)
-    #         save_json(my_init_kwargs, join(output_folder, 'predict_from_raw_data_args.json'))
-
-    #         # we need these two if we want to do things with the predictions like for example apply postprocessing
-    #         save_json(self.dataset_json, join(output_folder, 'dataset.json'), sort_keys=False)
-    #         save_json(self.plans_manager.plans, join(output_folder, 'plans.json'), sort_keys=False)
-    #     #######################
-
-    #     # check if we need a prediction from the previous stage
-    #     if self.configuration_manager.previous_stage_name is not None:
-    #         assert folder_with_segs_from_prev_stage is not None, \
-    #             f'The requested configuration is a cascaded network. It requires the segmentations of the previous ' \
-    #             f'stage ({self.configuration_manager.previous_stage_name}) as input. Please provide the folder where' \
-    #             f' they are located via folder_with_segs_from_prev_stage'
-
-    #     # sort out input and output filenames
-    #     list_of_lists_or_source_folder, output_filename_truncated, seg_from_prev_stage_files = \
-    #         self._manage_input_and_output_lists(list_of_lists_or_source_folder,
-    #                                             output_folder_or_list_of_truncated_output_files,
-    #                                             folder_with_segs_from_prev_stage, overwrite, part_id, num_parts,
-    #                                             save_probabilities)
-    #     if len(list_of_lists_or_source_folder) == 0:
-    #         return
-
-    #     data_iterator = self._internal_get_data_iterator_from_lists_of_filenames(list_of_lists_or_source_folder,
-    #                                                                              seg_from_prev_stage_files,
-    #                                                                              output_filename_truncated,
-    #                                                                              num_processes_preprocessing)
-
-    #     return self.predict_tissue_from_data_iterator(data_iterator, save_probabilities, num_processes_segmentation_export, binary_01)
-
+   
 
     def predict_tissue_from_files(self,
                                   list_of_lists_or_source_folder,
                                   output_folder_or_list_of_truncated_output_files,
                                   save_probabilities: bool = False,
                                   overwrite: bool = True,
-                                  suffix: str = None,
+                                  suffix: str = 'png',
                                   num_processes_preprocessing: int = default_num_processes,
                                   num_processes_segmentation_export: int = default_num_processes,
                                   folder_with_segs_from_prev_stage: str = None,
@@ -199,7 +138,8 @@ class TissueNNUnetPredictor(nnUNetPredictor):
         maybe_mkdir_p(output_folder)
 
 
-        if list_of_lists_or_source_folder.lower().endswith('.txt') or suffix is not None:
+
+        if list_of_lists_or_source_folder.lower().endswith('.txt') or suffix != 'png':
             print(f'[TissueNNUnetPredictor] Streaming WSI fully in memory...')
             self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, suffix, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01)
 
@@ -310,12 +250,13 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             cpu_workers: int = 8,
             binary_01 = False
     ):
-        if suffix is None:
+        if os.path.splitext(wsi_txt)[1] == '.txt':
             with open(wsi_txt) as f:
                 wsi_paths = [ln.strip() for ln in f if ln.strip()] 
         else:
             wsi_txt = Path(wsi_txt)
-            wsi_paths = list(wsi_txt.rglob(f'*{suffix}'))
+            # wsi_paths = list(wsi_txt.rglob(f'*{suffix}'))
+            wsi_paths = list(wsi_txt.glob(f'*/*.{suffix}'))
             wsi_paths = [str(wsi) for wsi in wsi_paths]
 
         print(f"Found {len(wsi_paths)} scans")
@@ -379,7 +320,7 @@ def predict_tissue_entry_point():
                         help='Converts output masks to binary 0,1 instead of standard 0,255')
     parser.add_argument('-resenc', action='store_true', required=False, default=False,
                         help='Use the Residual encoder nnUNet (new recommended base model from author)')
-    parser.add_argument('-suffix', required=False, default=False,
+    parser.add_argument('-suffix', required=False, default='png',
                         help='Add suffix for what scanner type to look for when running inference on WSIs.')
     ########################################################################################
 
@@ -503,3 +444,68 @@ def predict_tissue_entry_point():
 
 if __name__ == '__main__':
     predict_tissue_entry_point()
+
+
+
+
+ # def predict_tissue_from_files(self,
+    #                        list_of_lists_or_source_folder: Union[str, List[List[str]]],
+    #                        output_folder_or_list_of_truncated_output_files: Union[str, None, List[str]],
+    #                        save_probabilities: bool = False,
+    #                        overwrite: bool = True,
+    #                        num_processes_preprocessing: int = default_num_processes,
+    #                        num_processes_segmentation_export: int = default_num_processes,
+    #                        folder_with_segs_from_prev_stage: str = None,
+    #                        num_parts: int = 1,
+    #                        part_id: int = 0,
+    #                        binary_01: bool = False):
+    #     """
+    #     This is nnU-Net's default function for making predictions. It works best for batch predictions
+    #     (predicting many images at once).
+    #     """
+    #     if isinstance(output_folder_or_list_of_truncated_output_files, str):
+    #         output_folder = output_folder_or_list_of_truncated_output_files
+    #     elif isinstance(output_folder_or_list_of_truncated_output_files, list):
+    #         output_folder = os.path.dirname(output_folder_or_list_of_truncated_output_files[0])
+    #     else:
+    #         output_folder = None
+
+    #     ########################
+    #     # let's store the input arguments so that its clear what was used to generate the prediction
+    #     if output_folder is not None:
+    #         my_init_kwargs = {}
+    #         for k in inspect.signature(self.predict_from_files).parameters.keys():
+    #             my_init_kwargs[k] = locals()[k]
+    #         my_init_kwargs = deepcopy(
+    #             my_init_kwargs)  # let's not unintentionally change anything in-place. Take this as a
+    #         recursive_fix_for_json_export(my_init_kwargs)
+    #         maybe_mkdir_p(output_folder)
+    #         save_json(my_init_kwargs, join(output_folder, 'predict_from_raw_data_args.json'))
+
+    #         # we need these two if we want to do things with the predictions like for example apply postprocessing
+    #         save_json(self.dataset_json, join(output_folder, 'dataset.json'), sort_keys=False)
+    #         save_json(self.plans_manager.plans, join(output_folder, 'plans.json'), sort_keys=False)
+    #     #######################
+
+    #     # check if we need a prediction from the previous stage
+    #     if self.configuration_manager.previous_stage_name is not None:
+    #         assert folder_with_segs_from_prev_stage is not None, \
+    #             f'The requested configuration is a cascaded network. It requires the segmentations of the previous ' \
+    #             f'stage ({self.configuration_manager.previous_stage_name}) as input. Please provide the folder where' \
+    #             f' they are located via folder_with_segs_from_prev_stage'
+
+    #     # sort out input and output filenames
+    #     list_of_lists_or_source_folder, output_filename_truncated, seg_from_prev_stage_files = \
+    #         self._manage_input_and_output_lists(list_of_lists_or_source_folder,
+    #                                             output_folder_or_list_of_truncated_output_files,
+    #                                             folder_with_segs_from_prev_stage, overwrite, part_id, num_parts,
+    #                                             save_probabilities)
+    #     if len(list_of_lists_or_source_folder) == 0:
+    #         return
+
+    #     data_iterator = self._internal_get_data_iterator_from_lists_of_filenames(list_of_lists_or_source_folder,
+    #                                                                              seg_from_prev_stage_files,
+    #                                                                              output_filename_truncated,
+    #                                                                              num_processes_preprocessing)
+
+    #     return self.predict_tissue_from_data_iterator(data_iterator, save_probabilities, num_processes_segmentation_export, binary_01)

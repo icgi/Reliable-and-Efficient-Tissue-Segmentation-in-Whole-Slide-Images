@@ -168,8 +168,7 @@ class nnUNetPredictor(object):
                                                                                        self.dataset_json['file_ending'])
         print(f'There are {len(list_of_lists_or_source_folder)} cases in the source folder')
         list_of_lists_or_source_folder = list_of_lists_or_source_folder[part_id::num_parts]
-        # caseids = [os.path.basename(i[0])[:-(len(self.dataset_json['file_ending']) + 5)] for i in
-                #    list_of_lists_or_source_folder]
+
         caseids = [os.path.basename(i[0])[:-(len(self.dataset_json['file_ending']))] for i in
                    list_of_lists_or_source_folder]
 
@@ -269,19 +268,6 @@ class nnUNetPredictor(object):
                                                 output_filenames_truncated, self.plans_manager, self.dataset_json,
                                                 self.configuration_manager, num_processes, self.device.type == 'cuda',
                                                 self.verbose_preprocessing)
-        # preprocessor = self.configuration_manager.preprocessor_class(verbose=self.verbose_preprocessing)
-        # # hijack batchgenerators, yo
-        # # we use the multiprocessing of the batchgenerators dataloader to handle all the background worker stuff. This
-        # # way we don't have to reinvent the wheel here.
-        # num_processes = max(1, min(num_processes, len(input_list_of_lists)))
-        # ppa = PreprocessAdapter(input_list_of_lists, seg_from_prev_stage_files, preprocessor,
-        #                         output_filenames_truncated, self.plans_manager, self.dataset_json,
-        #                         self.configuration_manager, num_processes)
-        # if num_processes == 0:
-        #     mta = SingleThreadedAugmenter(ppa, None)
-        # else:
-        #     mta = MultiThreadedAugmenter(ppa, None, num_processes, 1, None, pin_memory=pin_memory)
-        # return mta
 
     def get_data_iterator_from_raw_npy_data(self,
                                             image_or_list_of_images: Union[np.ndarray, List[np.ndarray]],
@@ -379,8 +365,6 @@ class nnUNetPredictor(object):
 
                 if ofile is not None:
                     # this needs to go into background processes
-                    # export_prediction_from_logits(prediction, properties, self.configuration_manager, self.plans_manager,
-                    #                               self.dataset_json, ofile, save_probabilities)
                     print('sending off prediction to background worker for resampling and export')
                     r.append(
                         export_pool.starmap_async(
@@ -390,12 +374,6 @@ class nnUNetPredictor(object):
                         )
                     )
                 else:
-                    # convert_predicted_logits_to_segmentation_with_correct_shape(
-                    #             prediction, self.plans_manager,
-                    #              self.configuration_manager, self.label_manager,
-                    #              properties,
-                    #              save_probabilities)
-
                     print('sending off prediction to background worker for resampling')
                     r.append(
                         export_pool.starmap_async(

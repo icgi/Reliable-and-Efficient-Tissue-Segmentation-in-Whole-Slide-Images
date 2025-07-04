@@ -138,7 +138,6 @@ class DefaultPreprocessor(object):
             
             # Convert data to right order
             data = np.moveaxis(data, -1, 0)
-            # data = np.moveaxis(data, 1, 2)
             data = data[:, np.newaxis, :, :]
 
         else:

@@ -127,6 +127,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                                   save_probabilities: bool = False,
                                   overwrite: bool = True,
                                   suffix: str = 'png',
+                                  exclude: str = 'Excluded',
                                   num_processes_preprocessing: int = default_num_processes,
                                   num_processes_segmentation_export: int = default_num_processes,
                                   folder_with_segs_from_prev_stage: str = None,
@@ -141,7 +142,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
 
         if list_of_lists_or_source_folder.lower().endswith('.txt') or suffix != 'png':
             print(f'[TissueNNUnetPredictor] Streaming WSI fully in memory...')
-            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, suffix, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01)
+            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, suffix, exclude, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01)
 
             return
 
@@ -198,9 +199,6 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                 prediction = self.predict_logits_from_preprocessed_data(data).cpu()
 
                 if ofile is not None:
-                    # this needs to go into background processes
-                    # export_prediction_from_logits(prediction, properties, self.configuration_manager, self.plans_manager,
-                    #                               self.dataset_json, ofile, save_probabilities)
                     print('sending off prediction to background worker for resampling and export')
                     r.append(
                         export_pool.starmap_async(
@@ -210,12 +208,6 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                         )
                     )
                 else:
-                    # convert_predicted_logits_to_segmentation_with_correct_shape(
-                    #             prediction, self.plans_manager,
-                    #              self.configuration_manager, self.label_manager,
-                    #              properties,
-                    #              save_probabilities)
-
                     print('sending off prediction to background worker for resampling')
                     r.append(
                         export_pool.starmap_async(
@@ -246,6 +238,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             wsi_txt: str,
             output_folder: str,
             suffix: str,
+            exclude: str,
             overwrite: bool,
             cpu_workers: int = 8,
             binary_01 = False
@@ -255,9 +248,10 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                 wsi_paths = [ln.strip() for ln in f if ln.strip()] 
         else:
             wsi_txt = Path(wsi_txt)
-            # wsi_paths = list(wsi_txt.rglob(f'*{suffix}'))
-            wsi_paths = list(wsi_txt.glob(f'*/*.{suffix}'))
-            wsi_paths = [str(wsi) for wsi in wsi_paths]
+            wsi_paths = list(wsi_txt.rglob(f'*{suffix}'))
+            # wsi_paths = list(wsi_txt.glob(f'*.{suffix}'))
+            temp = len(wsi_paths)
+            wsi_paths = [str(wsi) for wsi in wsi_paths if not exclude in str(wsi)]
 
         print(f"Found {len(wsi_paths)} scans")
 
@@ -322,6 +316,8 @@ def predict_tissue_entry_point():
                         help='Use the Residual encoder nnUNet (new recommended base model from author)')
     parser.add_argument('-suffix', required=False, default='png',
                         help='Add suffix for what scanner type to look for when running inference on WSIs.')
+    parser.add_argument('-exclude', required=False, default='Excluded', 
+                        help='Name of folder to be excluded when rglobing for WSIs in a directory.')
     ########################################################################################
 
     parser.add_argument('-step_size', type=float, required=False, default=0.5,
@@ -362,13 +358,6 @@ def predict_tissue_entry_point():
     parser.add_argument('--disable_progress_bar', action='store_true', required=False, default=False,
                         help='Set this flag to disable progress bar. Recommended for HPC environments (non interactive '
                              'jobs)')
-
-    # print(
-    #     "\n#######################################################################\nPlease cite the following paper "
-    #     "when using nnU-Net:\n"
-    #     "Isensee, F., Jaeger, P. F., Kohl, S. A., Petersen, J., & Maier-Hein, K. H. (2021). "
-    #     "nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation. "
-    #     "Nature methods, 18(2), 203-211.\n#######################################################################\n")
 
     args = parser.parse_args()
 
@@ -420,18 +409,13 @@ def predict_tissue_entry_point():
             checkpoint_name='checkpoint_10um_ResEnc.pth',
         )
     print(f"Time for loading model {time() - t0} seconds")
-        # # initialize the ResEnc version of the model
-        # predictor.initialize_from_trained_tissue_model_folder(
-        #     join(nnUNet_results, 'Dataset021_TissueSegmentation_10um/nnUNetTrainer__nnUNetResEncUNetLPlans__2d'),
-        #     use_folds='all',
-        #     checkpoint_name='checkpoint_final.pth',
-        # )
 
     predicted_segmentations = predictor.predict_tissue_from_files(args.i,
                                                            args.o,
                                                            save_probabilities=False,
                                                            overwrite=not args.continue_prediction,
                                                            suffix=args.suffix,
+                                                           exclude=args.exclude,
                                                            num_processes_preprocessing=args.npp,
                                                            num_processes_segmentation_export=args.nps,
                                                            folder_with_segs_from_prev_stage=args.prev_stage_predictions,
@@ -444,68 +428,3 @@ def predict_tissue_entry_point():
 
 if __name__ == '__main__':
     predict_tissue_entry_point()
-
-
-
-
- # def predict_tissue_from_files(self,
-    #                        list_of_lists_or_source_folder: Union[str, List[List[str]]],
-    #                        output_folder_or_list_of_truncated_output_files: Union[str, None, List[str]],
-    #                        save_probabilities: bool = False,
-    #                        overwrite: bool = True,
-    #                        num_processes_preprocessing: int = default_num_processes,
-    #                        num_processes_segmentation_export: int = default_num_processes,
-    #                        folder_with_segs_from_prev_stage: str = None,
-    #                        num_parts: int = 1,
-    #                        part_id: int = 0,
-    #                        binary_01: bool = False):
-    #     """
-    #     This is nnU-Net's default function for making predictions. It works best for batch predictions
-    #     (predicting many images at once).
-    #     """
-    #     if isinstance(output_folder_or_list_of_truncated_output_files, str):
-    #         output_folder = output_folder_or_list_of_truncated_output_files
-    #     elif isinstance(output_folder_or_list_of_truncated_output_files, list):
-    #         output_folder = os.path.dirname(output_folder_or_list_of_truncated_output_files[0])
-    #     else:
-    #         output_folder = None
-
-    #     ########################
-    #     # let's store the input arguments so that its clear what was used to generate the prediction
-    #     if output_folder is not None:
-    #         my_init_kwargs = {}
-    #         for k in inspect.signature(self.predict_from_files).parameters.keys():
-    #             my_init_kwargs[k] = locals()[k]
-    #         my_init_kwargs = deepcopy(
-    #             my_init_kwargs)  # let's not unintentionally change anything in-place. Take this as a
-    #         recursive_fix_for_json_export(my_init_kwargs)
-    #         maybe_mkdir_p(output_folder)
-    #         save_json(my_init_kwargs, join(output_folder, 'predict_from_raw_data_args.json'))
-
-    #         # we need these two if we want to do things with the predictions like for example apply postprocessing
-    #         save_json(self.dataset_json, join(output_folder, 'dataset.json'), sort_keys=False)
-    #         save_json(self.plans_manager.plans, join(output_folder, 'plans.json'), sort_keys=False)
-    #     #######################
-
-    #     # check if we need a prediction from the previous stage
-    #     if self.configuration_manager.previous_stage_name is not None:
-    #         assert folder_with_segs_from_prev_stage is not None, \
-    #             f'The requested configuration is a cascaded network. It requires the segmentations of the previous ' \
-    #             f'stage ({self.configuration_manager.previous_stage_name}) as input. Please provide the folder where' \
-    #             f' they are located via folder_with_segs_from_prev_stage'
-
-    #     # sort out input and output filenames
-    #     list_of_lists_or_source_folder, output_filename_truncated, seg_from_prev_stage_files = \
-    #         self._manage_input_and_output_lists(list_of_lists_or_source_folder,
-    #                                             output_folder_or_list_of_truncated_output_files,
-    #                                             folder_with_segs_from_prev_stage, overwrite, part_id, num_parts,
-    #                                             save_probabilities)
-    #     if len(list_of_lists_or_source_folder) == 0:
-    #         return
-
-    #     data_iterator = self._internal_get_data_iterator_from_lists_of_filenames(list_of_lists_or_source_folder,
-    #                                                                              seg_from_prev_stage_files,
-    #                                                                              output_filename_truncated,
-    #                                                                              num_processes_preprocessing)
-
-    #     return self.predict_tissue_from_data_iterator(data_iterator, save_probabilities, num_processes_segmentation_export, binary_01)

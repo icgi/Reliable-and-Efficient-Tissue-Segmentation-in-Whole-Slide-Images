@@ -140,7 +140,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
 
 
 
-        if list_of_lists_or_source_folder.lower().endswith('.txt') or suffix != 'png':
+        if list_of_lists_or_source_folder.lower().endswith('.txt') or suffix is not None:
             print(f'[TissueNNUnetPredictor] Streaming WSI fully in memory...')
             self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, suffix, exclude, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01)
 
@@ -249,9 +249,11 @@ class TissueNNUnetPredictor(nnUNetPredictor):
         else:
             wsi_txt = Path(wsi_txt)
             wsi_paths = list(wsi_txt.rglob(f'*{suffix}'))
-            # wsi_paths = list(wsi_txt.glob(f'*.{suffix}'))
-            temp = len(wsi_paths)
-            wsi_paths = [str(wsi) for wsi in wsi_paths if not exclude in str(wsi)]
+            if exclude is not None:
+                wsi_paths = [str(wsi) for wsi in wsi_paths if not exclude in str(wsi)]
+            else:
+                wsi_paths = [str(wsi) for wsi in wsi_paths]
+
 
         print(f"Found {len(wsi_paths)} scans")
 
@@ -310,14 +312,14 @@ def predict_tissue_entry_point():
     parser.add_argument('-o', type=str, required=True,
                         help='Output folder. If it does not exist it will be created. Predicted segmentations will '
                              'have the same name as their source images.')
-    parser.add_argument('--b01', action='store_true', required=False, default=False,
-                        help='Converts output masks to binary 0,1 instead of standard 0,255')
     parser.add_argument('-resenc', action='store_true', required=False, default=False,
                         help='Use the Residual encoder nnUNet (new recommended base model from author)')
-    parser.add_argument('-suffix', required=False, default='png',
+    parser.add_argument('-suffix', required=False, default=None,
                         help='Add suffix for what scanner type to look for when running inference on WSIs.')
-    parser.add_argument('-exclude', required=False, default='some_folder_name', 
+    parser.add_argument('-exclude', required=False, default=None, 
                         help='Name of folder to be excluded when rglobing for WSIs in a directory.')
+    parser.add_argument('--b01', action='store_true', required=False, default=False,
+                        help='Converts output masks to binary 0,1 instead of standard 0,255')
     ########################################################################################
 
     parser.add_argument('-step_size', type=float, required=False, default=0.5,

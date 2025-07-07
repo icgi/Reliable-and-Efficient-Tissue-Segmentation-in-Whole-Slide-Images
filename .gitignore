@@ -1,5 +1,6 @@
 *.pth
 *.pt
+*.txt
 *.pyc
 models/
 __pycache__/

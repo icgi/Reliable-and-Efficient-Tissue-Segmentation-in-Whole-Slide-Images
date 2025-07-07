@@ -124,10 +124,10 @@ class TissueNNUnetPredictor(nnUNetPredictor):
     def predict_tissue_from_files(self,
                                   list_of_lists_or_source_folder,
                                   output_folder_or_list_of_truncated_output_files,
+                                  suffix: str, 
+                                  exclude: str,
                                   save_probabilities: bool = False,
                                   overwrite: bool = True,
-                                  suffix: str = 'png',
-                                  exclude: str = 'Excluded',
                                   num_processes_preprocessing: int = default_num_processes,
                                   num_processes_segmentation_export: int = default_num_processes,
                                   folder_with_segs_from_prev_stage: str = None,
@@ -316,7 +316,7 @@ def predict_tissue_entry_point():
                         help='Use the Residual encoder nnUNet (new recommended base model from author)')
     parser.add_argument('-suffix', required=False, default='png',
                         help='Add suffix for what scanner type to look for when running inference on WSIs.')
-    parser.add_argument('-exclude', required=False, default='Excluded', 
+    parser.add_argument('-exclude', required=False, default='some_folder_name', 
                         help='Name of folder to be excluded when rglobing for WSIs in a directory.')
     ########################################################################################
 

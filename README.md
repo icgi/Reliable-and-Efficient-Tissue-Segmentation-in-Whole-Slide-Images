@@ -81,10 +81,10 @@ nnUNetv2_predict_tissue -i /path/to/scan_list.txt -o /path/to/output
 
 The layout for the text file should look like this:
 ```text
-/path/to/scan1.format
-/path/to/scan2.format
-/path/to/scan3.format
-/path/to/scan4.format
+/path/to/scan1.suffix
+/path/to/scan2.suffix
+/path/to/scan3.suffix
+/path/to/scan4.suffix
 ...
 ```
 

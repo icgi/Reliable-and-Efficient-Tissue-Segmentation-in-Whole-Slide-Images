@@ -74,7 +74,8 @@ We explain the use of inference with the following parameters.
 nnUNetv2_predict_tissue -i /path/to/images/ -o /path/to/output \
  -suffix suffix_name \
  -exclude exclusion_folder \
- -resenc \
+ --keep_parent \
+ --resenc \
  --b01 \
  --continue_prediction
 ```
@@ -107,6 +108,11 @@ By setting the exclude flag, you can exclude unwanted folders from projects (exc
 
 ```bash
 nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -suffix suffix_name -exclude exclusion_folder
+```
+
+If you want output predictions to be saved in their respective parent folders, use the 'keep_parent' flag.
+```bash
+nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -suffix suffix_name --keep_parent
 ```
 
 By default, the standard nnUNetv2 model will be used. If you want to use the **residual encoder (ResEnc)** model, please use the **-resenc** flag. Please be aware that inference time will be slightly slower due to the complexity of the ResEnc network. 

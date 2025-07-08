@@ -58,7 +58,7 @@ def _preprocess_to_memory(case_id: str,
                           pp: DefaultPreprocessor,
                           plans, cfg, ds_json):
     data, _, props = pp.run_case([wsi_path], None, plans, cfg, ds_json)
-    return case_id, data, props
+    return case_id, data, props, wsi_path
 
 
 
@@ -119,8 +119,6 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             print('Using torch.compile')
             self.network = torch.compile(self.network)
 
-   
-
     def predict_tissue_from_files(self,
                                   list_of_lists_or_source_folder,
                                   output_folder_or_list_of_truncated_output_files,
@@ -133,7 +131,8 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                                   folder_with_segs_from_prev_stage: str = None,
                                   num_parts: int = 1,
                                   part_id: int = 0,
-                                  binary_01: bool = False):
+                                  binary_01: bool = False,
+                                  keep_parent: bool = False):
         
         output_folder = output_folder_or_list_of_truncated_output_files
         maybe_mkdir_p(output_folder)
@@ -142,7 +141,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
 
         if list_of_lists_or_source_folder.lower().endswith('.txt') or suffix is not None:
             print(f'[TissueNNUnetPredictor] Streaming WSI fully in memory...')
-            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, suffix, exclude, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01)
+            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, suffix, exclude, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01, keep_parent=keep_parent)
 
             return
 
@@ -241,7 +240,8 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             exclude: str,
             overwrite: bool,
             cpu_workers: int = 8,
-            binary_01 = False
+            binary_01: bool = False,
+            keep_parent: bool = False
     ):
         if os.path.splitext(wsi_txt)[1] == '.txt':
             with open(wsi_txt) as f:
@@ -280,7 +280,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                                     for p in wsi_paths]
 
             for fut in as_completed(futures):
-                cid, np_data, props = fut.result()
+                cid, np_data, props, wsi_path = fut.result()
 
                 print(f"Now predicting {cid}")
                 logits = self.predict_logits_from_preprocessed_data(
@@ -288,7 +288,13 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                 ).cpu()
 
 
-                png_file = os.path.join(output_folder, cid)
+                if keep_parent:
+                    path_format = Path(wsi_path).relative_to(Path(wsi_txt)).parent
+                    png_file = os.path.join(output_folder, path_format, cid)
+                    os.makedirs(os.path.dirname(png_file), exist_ok=True)
+                else:
+                    png_file = os.path.join(output_folder, cid)
+
                 export_prediction_from_logits(
                     logits, props, cfg, plans, ds_json,
                     png_file, save_probabilities=False, binary_01=binary_01
@@ -297,8 +303,6 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                 del np_data, logits
                 torch.cuda.empty_cache()
         
-       
-
 def predict_tissue_entry_point():
     import argparse
     parser = argparse.ArgumentParser(description='Use this to run inference with nnU-Net. This function is used when '
@@ -320,6 +324,8 @@ def predict_tissue_entry_point():
                         help='Use the Residual encoder nnUNet (new recommended base model from author)')
     parser.add_argument('--b01', action='store_true', required=False, default=False,
                         help='Converts output masks to binary 0,1 instead of standard 0,255')
+    parser.add_argument('--keep_parent', action='store_true', required=False, default=False,
+                        help='Include this flag if you want each prediction to be saved in a parent folder in the same order as the source folder.')
     ########################################################################################
 
     parser.add_argument('-step_size', type=float, required=False, default=0.5,
@@ -423,7 +429,8 @@ def predict_tissue_entry_point():
                                                            folder_with_segs_from_prev_stage=args.prev_stage_predictions,
                                                            num_parts=args.num_parts,
                                                            part_id=args.part_id,
-                                                           binary_01=args.b01)
+                                                           binary_01=args.b01,
+                                                           keep_parent=args.keep_parent)
     t1 = time()
 
     print(f"Total time including model loading and inference {t1-t0} seconds")

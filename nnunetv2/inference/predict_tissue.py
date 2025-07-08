@@ -312,12 +312,12 @@ def predict_tissue_entry_point():
     parser.add_argument('-o', type=str, required=True,
                         help='Output folder. If it does not exist it will be created. Predicted segmentations will '
                              'have the same name as their source images.')
-    parser.add_argument('-resenc', action='store_true', required=False, default=False,
-                        help='Use the Residual encoder nnUNet (new recommended base model from author)')
     parser.add_argument('-suffix', required=False, default=None,
                         help='Add suffix for what scanner type to look for when running inference on WSIs.')
     parser.add_argument('-exclude', required=False, default=None, 
                         help='Name of folder to be excluded when rglobing for WSIs in a directory.')
+    parser.add_argument('--resenc', action='store_true', required=False, default=False,
+                        help='Use the Residual encoder nnUNet (new recommended base model from author)')
     parser.add_argument('--b01', action='store_true', required=False, default=False,
                         help='Converts output masks to binary 0,1 instead of standard 0,255')
     ########################################################################################

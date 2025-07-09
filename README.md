@@ -12,7 +12,7 @@ The model assumes that the input images are downsampled to 10 μm per pixel. The
 2. [Installation and Setup](#installation-and-setup)
 3. [Running inference for tissue segmentation](#running-inference-for-tissue-segmentation)
 4. [Hardware requirements and inference times](#hardware-requirements-and-inference-times)
-5. [Aknowledgement](#aknowledgement)
+5. [Acknowledgments and Disclosure of Funding](#acknowledgments-and-disclosure-of-funding)
 6. [License](#license)
 
 ## Results
@@ -31,9 +31,6 @@ We also test the trade-offs in performance and inference speed at different reso
 |         10         | ResEnc       |    98.87       |          3.09      |
 |         20         | nnU-Net      |    98.46       |          0.44      |
 |         20         | ResEnc       |    98.26       |          0.89      |
-
-
-
 
 ## Installation and Setup
 Firstly, download the models folder: 
@@ -171,8 +168,17 @@ We present average inference times for both models tested on an RTX3090 with 24G
 | nnUNet        |      1.42 seconds  |     100    |
 | nnUNet ResEnc |      3.09 seconds  |     100    |
 
-## Aknowledgement
+## Acknowledgments and Disclosure of Funding
 The code for this project is heavily based on the nnU-Net pipeline (https://github.com/MIC-DKFZ/nnUNetwith). We take no credit for the architecture or pipeline, and only introduce small adjustments for easier use in Pathology. 
 
+We thank Krishanthi Harikaran, Ingrid Elise Weydahl, and Maria Isaksen for laboratory
+assistance. We are also grateful to Zhen Qian for facilitating the acquisition of the dataset
+from the Erasmus University Medical Center Cancer Institute. This work was supported
+by the South-Eastern Norway Regional Health and Authority research fund (grant number
+2024039) and The Norwegian Cancer Society (grant number 273051).
+
 ## License
-CC
+This work is licensed under the **Creative Commons
+Attribution-NonCommercial 4.0 International** license  
+[https://creativecommons.org/licenses/by-nc-nd/4.0/](https://creativecommons.org/licenses/by-nc/4.0/).
+

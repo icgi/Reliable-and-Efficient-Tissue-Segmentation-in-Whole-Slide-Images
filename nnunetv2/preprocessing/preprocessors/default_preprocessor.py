@@ -132,7 +132,6 @@ class DefaultPreprocessor(object):
         rw = plans_manager.image_reader_writer_class()
 
         if not ".png" in image_files[0]:
-            print(f"Downsampling {image_files[0]}...")
             data, info = image_from_scan(str(image_files[0]), 10, 'CCCCCC')
             data_properties = {'spacing': (999, 1, 1)}
             

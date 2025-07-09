@@ -1,3 +1,7 @@
+# Copyright (c) 2021 nEsensee, F. Et al.
+# Modifications 2025 Institute for Cancer Genetics and Informatics
+# Licensed under the Apache License, Version 2.0
+
 from nnunetv2.paths import nnUNet_results, nnUNet_raw
 import torch
 from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
@@ -17,6 +21,7 @@ import os
 from copy import deepcopy
 from time import sleep, time
 from typing import Tuple, Union, List, Optional
+import gc
 
 
 from batchgenerators.dataloading.multi_threaded_augmenter import MultiThreadedAugmenter
@@ -24,7 +29,7 @@ from batchgenerators.utilities.file_and_folder_operations import load_json, join
     save_json
 
 
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, FIRST_COMPLETED, wait
 
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.inference.export_prediction import export_prediction_from_logits, \
@@ -57,7 +62,11 @@ def _preprocess_to_memory(case_id: str,
                           wsi_path: str,
                           pp: DefaultPreprocessor,
                           plans, cfg, ds_json):
-    data, _, props = pp.run_case([wsi_path], None, plans, cfg, ds_json)
+    try:
+        data, _, props = pp.run_case([wsi_path], None, plans, cfg, ds_json)
+    except Exception as e:
+        print(f'Failed {wsi_path}: {e}')
+        return case_id, None, None, wsi_path
     return case_id, data, props, wsi_path
 
 
@@ -230,7 +239,52 @@ class TissueNNUnetPredictor(nnUNetPredictor):
         compute_gaussian.cache_clear()
         # clear device cache
         empty_cache(self.device)
-        return ret
+        return ret      
+
+    def _preprocess_wrapper(self, p, pp, plans, cfg, ds_json):
+        return _preprocess_to_memory(
+            Path(p).stem, p, pp, plans, cfg, ds_json
+        )
+
+    def _handle_result(self, fut, keep_parent, wsi_txt, cfg, plans, ds_json, binary_01, output_folder):
+        try:
+            cid, np_data, props, wsi_path = fut.result()
+        except Exception as e:
+            print(f"Preprocessing failed for {wsi_path}: {e}")
+            return
+
+        # corrupted slides can make _preprocess_to_memory return None
+        if np_data is None:
+            print(f"Skipping corrupt slide: {wsi_path}")
+            return
+
+        try:
+            print(f"Now predicting {cid}")
+            logits = self.predict_logits_from_preprocessed_data(
+                torch.from_numpy(np_data).to(self.device)
+            ).cpu()
+
+            if keep_parent:
+                rel_parent = Path(wsi_path).relative_to(Path(wsi_txt)).parent
+                png_file = os.path.join(output_folder, rel_parent, cid)
+                os.makedirs(os.path.dirname(png_file), exist_ok=True)
+            else:
+                png_file = os.path.join(output_folder, cid)
+
+            export_prediction_from_logits(
+                logits, props, cfg, plans, ds_json,
+                png_file, save_probabilities=False, binary_01=binary_01
+            )
+
+        except Exception as e:
+            print(f"Prediction failed for {wsi_path}: {e}")
+
+        finally:
+            # ----- critical for not being OOM-killed -----
+            del np_data, logits
+            torch.cuda.empty_cache()
+            gc.collect()  
+            
 
     def predict_wsi_streaming(
             self,
@@ -259,9 +313,12 @@ class TissueNNUnetPredictor(nnUNetPredictor):
 
         if not overwrite:
             files_for_inference = []
+            predictions = list(Path(output_folder).rglob('*.png'))
+            predictions = [p.stem for p in predictions]
+
             for wp in wsi_paths:
                 filename = os.path.basename(wp).split('.')[0]
-                if not os.path.exists(f'{output_folder}/{filename}.png'):
+                if not filename in predictions:
                     files_for_inference.append(wp)
 
             wsi_paths = files_for_inference
@@ -272,36 +329,50 @@ class TissueNNUnetPredictor(nnUNetPredictor):
         pp = DefaultPreprocessor(verbose=False)
         plans, cfg, ds_json = self.plans_manager, self.configuration_manager, self.dataset_json
 
+        max_in_flight = cpu_workers * 2
+        pending = set()
 
-        with ThreadPoolExecutor(max_workers=cpu_workers) as cpu_pool:
-            futures = [cpu_pool.submit(_preprocess_to_memory,
-                                       Path(p).stem, p,
-                                       pp, plans, cfg, ds_json)
-                                    for p in wsi_paths]
+        with ThreadPoolExecutor(max_workers=cpu_workers) as pool:
+            for path in wsi_paths:
+                pending.add(pool.submit(self._preprocess_wrapper, path, pp, plans, cfg, ds_json))
 
-            for fut in as_completed(futures):
-                cid, np_data, props, wsi_path = fut.result()
+                if len(pending) >= max_in_flight:
+                    done, pending = wait(pending, return_when=FIRST_COMPLETED)
+                    for fut in done:
+                        self._handle_result(fut, keep_parent=keep_parent, wsi_txt=wsi_txt, cfg=cfg, plans=plans, ds_json=ds_json, binary_01=binary_01, output_folder=output_folder)
 
-                print(f"Now predicting {cid}")
-                logits = self.predict_logits_from_preprocessed_data(
-                    torch.from_numpy(np_data).to(self.device)
-                ).cpu()
+            for fut in pending:
+                self._handle_result(fut, keep_parent=keep_parent, wsi_txt=wsi_txt, cfg=cfg, plans=plans, ds_json=ds_json, binary_01=binary_01, output_folder=output_folder)
+
+            # futures = [cpu_pool.submit(_preprocess_to_memory,
+            #                            Path(p).stem, p,
+            #                            pp, plans, cfg, ds_json)
+            #                         for p in wsi_paths]
+
+            # for fut in as_completed(futures):
+            #     cid, np_data, props, wsi_path = fut.result()
+
+            #     if np_data is not None:
+            #         print(f"Now predicting {cid}")
+            #         logits = self.predict_logits_from_preprocessed_data(
+            #             torch.from_numpy(np_data).to(self.device)
+            #         ).cpu()
 
 
-                if keep_parent:
-                    path_format = Path(wsi_path).relative_to(Path(wsi_txt)).parent
-                    png_file = os.path.join(output_folder, path_format, cid)
-                    os.makedirs(os.path.dirname(png_file), exist_ok=True)
-                else:
-                    png_file = os.path.join(output_folder, cid)
+            #         if keep_parent:
+            #             path_format = Path(wsi_path).relative_to(Path(wsi_txt)).parent
+            #             png_file = os.path.join(output_folder, path_format, cid)
+            #             os.makedirs(os.path.dirname(png_file), exist_ok=True)
+            #         else:
+            #             png_file = os.path.join(output_folder, cid)
 
-                export_prediction_from_logits(
-                    logits, props, cfg, plans, ds_json,
-                    png_file, save_probabilities=False, binary_01=binary_01
-                )
+            #         export_prediction_from_logits(
+            #             logits, props, cfg, plans, ds_json,
+            #             png_file, save_probabilities=False, binary_01=binary_01
+            #         )
 
-                del np_data, logits
-                torch.cuda.empty_cache()
+            #         del np_data, logits
+            #         torch.cuda.empty_cache()
         
 def predict_tissue_entry_point():
     import argparse

@@ -1,14 +1,27 @@
-# This is the code repo for our paper "Reliable and Efficient Tissue Segmentation in Whole-Slide Images" 
+# Reliable and Efficient Tissue Segmentation in Whole-Slide Images 
 
-This repo is a fork of the official nnU-Net (https://github.com/MIC-DKFZ/nnUNetwith) an additional inference file (predict_tissue.py) created for simple, straightforward inference without prior knowledge of how the pipeline works. We have included minor modifications to the pipeline to simplify the inference run. This includes: 
+This is the code repo for our paper "Reliable and Efficient Tissue Segmentation in Whole-Slide Images". The repository introduces a simple-to-use pipeline for segmenting Tissue in Whole-Slide images (WSIs). We include the pretrained weights for our best model as well as a Docker project for easy setup and use. Our model is based on the nnU-Net pipeline (https://github.com/MIC-DKFZ/nnUNetwith). We have included several modifications to the pipeline adapted for WSIs to simplify inference. This includes: 
 - Removing the need to add a modality ID at the end of input scans (some_scan_0000.png, some_scan_0001.png, etc.)
 - Outputting masks in a more user-friendly way ([0,255] instead of [0,1])
 - Removing the need to specify a model path, as this is done automatically.
 
-The model assumes that the input images are downsampled to 10 μm per pixel. The network is image dimension invariance by nature, but we can not guarantee quality segmentation if used at other resolutions.
+The model assumes that the input images are downsampled to 10 μm per pixel. The network is image dimension invariant by nature, but we can not guarantee quality segmentation if used at other resolutions.
 
+## Table of Contents
+1. [Results](#results)
+2. [Installation and Setup](#installation-and-setup)
+3. [Running inference for tissue segmentation](#running-inference-for-tissue-segmentation)
+4. [Hardware requirements and inference times](#hardware-requirements-and-inference-times)
+5. [Acknowledgments and Disclosure of Funding](#acknowledgments-and-disclosure-of-funding)
+6. [License](#license)
+
+## Results
 ### In our paper, we show the strong performance of our model and compare it to other baselines: 
-![box_plot_of_dice_scores_logit_imagesTs (1)](https://github.com/user-attachments/assets/24297616-61a2-4319-b95d-a04aecd16082)
+
+<img src="https://github.com/user-attachments/assets/24297616-61a2-4319-b95d-a04aecd16082" alt="drawing" width="700"/>
+<img src="https://github.com/user-attachments/assets/ac0be4bd-2ee6-49c9-ae48-ecaf21ef51a5" alt="drawing" width="700"/>
+
+We also test the trade-offs in performance and inference speed at different resolutions.
 
 | Resolution (um/px) |     Model    | Dice score (%) | Inference time (s) |
 | -----------------: | :----------- | -------------: | -----------------: |
@@ -18,11 +31,8 @@ The model assumes that the input images are downsampled to 10 μm per pixel. The
 |         10         | ResEnc       |    98.87       |          3.09      |
 |         20         | nnU-Net      |    98.46       |          0.44      |
 |         20         | ResEnc       |    98.26       |          0.89      |
-|          8         | Pathprofiler |    94.40       |          2.25      |
 
-
-
-## Getting started
+## Installation and Setup
 Firstly, download the models folder: 
 
 ```bash
@@ -54,7 +64,6 @@ project_root/
 └──dockerfiles/    
 ```
 
-## Setup
 To set up the environment, simply build and run the Docker project within the dockerfiles folder:
 
 ```bash
@@ -74,12 +83,13 @@ We explain the use of inference with the following parameters.
 nnUNetv2_predict_tissue -i /path/to/images/ -o /path/to/output \
  -suffix suffix_name \
  -exclude exclusion_folder \
- -resenc \
+ --keep_parent \
+ --resenc \
  --b01 \
  --continue_prediction
 ```
 
-By default, the nnU-Net model takes a folder of PNG images and runs inference on them. However, we also have included support for sending a txt list file containing paths to WSIs for inference. This approach will automatically downsample the images to 10um in the inference loop.
+**By default, the nnU-Net model takes a folder of PNG images. However, we have also included support for sending a text file containing a list of paths to WSIs for inference. This approach will automatically downsample the images to 10um in the inference loop.**
 
 ```bash
 nnUNetv2_predict_tissue -i /path/to/images/ -o /path/to/output
@@ -98,7 +108,7 @@ The layout for the text file should look like this:
 ...
 ```
 
-Alternatively, you can specify a path to WSIs with the inclusion of the file ending suffix (.svs, .ndpi, etc.).
+Alternatively, you can specify a path to WSIs by including the file ending suffix (.svs, .ndpi, etc.).
 ```bash
 nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -suffix suffix_name
 ```
@@ -109,13 +119,30 @@ By setting the exclude flag, you can exclude unwanted folders from projects (exc
 nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -suffix suffix_name -exclude exclusion_folder
 ```
 
+If you want output predictions to be saved in their respective parent folders, use the 'keep_parent' flag.
+
+```bash
+nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -suffix suffix_name --keep_parent
+```
+
+For scans stored in unique ID folders, the structure would be saved like this:
+
+```plaintext
+output_folder/                                                              
+├── scan_id_1
+│   └── scan_id_1.suffix
+├── scan_id_2
+│   └── scan_id_2.suffix                                                                                               
+└── ...    
+```
+
 By default, the standard nnUNetv2 model will be used. If you want to use the **residual encoder (ResEnc)** model, please use the **-resenc** flag. Please be aware that inference time will be slightly slower due to the complexity of the ResEnc network. 
 
 ```bash
 nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --resenc
 ```
 
-We have modified the pipeline to output [0,255] instead of the original [0,1] output. If you still want to have your segmentation as **binary [0,1]**. please use the **--b01** flag during inference:
+We have modified the pipeline to output [0,255] instead of the original [0,1] output. To get **binary [0,1]** output. please use the **--b01** flag during inference:
 
 ```bash
 nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --b01
@@ -127,7 +154,7 @@ If you have an incomplete run of segmentation masks, you can continue where the 
 nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --continue_prediction
 ```
 
-If you plan on running inference on a folder of png images, you can use the help flag to check extra commands. However, some of these features are not yet supported for the txt input. 
+The nnU-Net architecture contains additional arguments not listed here. Please use the help flag 'h' to see more. 
 
 ```bash
 nnUNetv2_predict_tissue -h
@@ -140,3 +167,18 @@ We present average inference times for both models tested on an RTX3090 with 24G
 | :------: | ------------------: | ----------: |
 | nnUNet        |      1.42 seconds  |     100    |
 | nnUNet ResEnc |      3.09 seconds  |     100    |
+
+## Acknowledgments and Disclosure of Funding
+The code for this project is heavily based on the nnU-Net pipeline (https://github.com/MIC-DKFZ/nnUNetwith). We take no credit for the architecture or pipeline, and only introduce small adjustments for easier use in Pathology. 
+
+We thank Krishanthi Harikaran, Ingrid Elise Weydahl, and Maria Isaksen for laboratory
+assistance. We are also grateful to Zhen Qian for facilitating the acquisition of the dataset
+from the Erasmus University Medical Center Cancer Institute. This work was supported
+by the South-Eastern Norway Regional Health and Authority research fund (grant number
+2024039) and The Norwegian Cancer Society (grant number 273051).
+
+## License
+This work is licensed under the **Creative Commons
+Attribution-NonCommercial 4.0 International** license  
+[https://creativecommons.org/licenses/by-nc-nd/4.0/](https://creativecommons.org/licenses/by-nc/4.0/).
+

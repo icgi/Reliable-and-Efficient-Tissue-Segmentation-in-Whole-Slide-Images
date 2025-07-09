@@ -122,9 +122,9 @@ For scans stored in unique ID folders, the structure would be saved like this:
 ```plaintext
 output_folder/                                                              
 ├── scan_id_1
-│   └── scan_id_1.svs
+│   └── scan_id_1.suffix
 ├── scan_id_2
-│   └── scan_id_2.svs                                                                                                 
+│   └── scan_id_2.suffix                                                                                               
 └── ...    
 ```
 

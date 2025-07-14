@@ -37,13 +37,13 @@ Firstly, download the models folder:
 
 ```bash
 pip install gdown
-gdown 1WL_eB88yu6gr89AMdF4ktmaXpCCHknxS
+gdown 19at3jNEgsRTUEjUaAmbWSTF9QF5-Tvi1
 unzip model.zip
 ```
 
 Alternatively, you can download it directly from the gdrive link:
 
-https://drive.google.com/file/d/1WL_eB88yu6gr89AMdF4ktmaXpCCHknxS/view?usp=sharing
+https://drive.google.com/file/d/19at3jNEgsRTUEjUaAmbWSTF9QF5-Tvi1/view?usp=sharing
 Place and unzip the folder inside the project folder like this:
 
 ```plaintext

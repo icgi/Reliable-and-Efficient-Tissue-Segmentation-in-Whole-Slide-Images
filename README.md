@@ -80,14 +80,16 @@ docker-compose run nnunet
 
 We explain the use of inference with the following parameters.
 ```bash
-nnUNetv2_predict_tissue -i /path/to/images/ -o /path/to/output \
- -suffix suffix_name \
- -exclude exclusion_folder \
- --keep_parent \
- --resenc \
- --lowres \
- --b01 \
- --continue_prediction
+nnUNetv2_predict_tissue
+ -i /path/to/images/          # Input path (expects path to PNGs or WSIs; alternatively, you can send a text file list with paths to WSIs.)
+ -o /path/to/output \         # Output path (will be output in a flat layout unless the keep_parent flag is included).
+ -suffix suffix_name \        # Define WSI file ending to search for (ndpi, svs, etc.).
+ -exclude exclusion_folder \  # Name of folder to be ignored during search for slides in a path.
+ --keep_parent \              # Saves output in same directory layout as input scans.
+ --resenc \                   # Use the Residual Encoder network (resource-heavy and significant increase in inference time).
+ --lowres \                   # Use 20 um/px instead of 10 um/px model (Much faster with similar performance to original model).
+ --b01 \                      # Get output in binary [0,1] instead of [0,255].
+ --continue_prediction        # Continue prediction if output already exists in path. 
 ```
 
 **By default, the nnU-Net model takes a folder of PNG images. However, we have also included support for sending a text file containing a list of paths to WSIs for inference. This approach will automatically downsample the images to 10um in the inference loop.**

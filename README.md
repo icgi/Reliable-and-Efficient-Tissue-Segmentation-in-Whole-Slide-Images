@@ -37,13 +37,13 @@ Firstly, download the models folder:
 
 ```bash
 pip install gdown
-gdown 1WL_eB88yu6gr89AMdF4ktmaXpCCHknxS
-unzip model.zip
+gdown 11x4WWWCqBz-DIL-11KRkokALU1ubvu0A
+unzip models.zip
 ```
 
 Alternatively, you can download it directly from the gdrive link:
 
-https://drive.google.com/file/d/1WL_eB88yu6gr89AMdF4ktmaXpCCHknxS/view?usp=sharing
+https://drive.google.com/file/d/11x4WWWCqBz-DIL-11KRkokALU1ubvu0A/view?usp=sharing
 Place and unzip the folder inside the project folder like this:
 
 ```plaintext
@@ -85,6 +85,7 @@ nnUNetv2_predict_tissue -i /path/to/images/ -o /path/to/output \
  -exclude exclusion_folder \
  --keep_parent \
  --resenc \
+ --lowres \
  --b01 \
  --continue_prediction
 ```
@@ -135,6 +136,13 @@ output_folder/
 │   └── scan_id_2.suffix                                                                                               
 └── ...    
 ```
+
+While our paper illustrates our 10 um/px model, giving a good balance in accuracy and efficiency, the 20 um/px model can often be a good enough alternative. With more than 3 times faster segmentation speed, it only gives a slight reduction in segmentation accuracy. If you don't require highly accurate masks, we recommend using the 20 um/px model as the performance is very similar, with a great boost in inference speed. To use the 20 um/px model, use the lowres flag.
+
+```bash
+nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --lowres
+```
+
 
 By default, the standard nnUNetv2 model will be used. If you want to use the **residual encoder (ResEnc)** model, please use the **-resenc** flag. Please be aware that inference time will be slightly slower due to the complexity of the ResEnc network. 
 

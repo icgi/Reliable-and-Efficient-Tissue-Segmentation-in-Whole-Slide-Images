@@ -38,7 +38,7 @@ Firstly, download the models folder:
 ```bash
 pip install gdown
 gdown 19at3jNEgsRTUEjUaAmbWSTF9QF5-Tvi1
-unzip model.zip
+unzip models.zip
 ```
 
 Alternatively, you can download it directly from the gdrive link:

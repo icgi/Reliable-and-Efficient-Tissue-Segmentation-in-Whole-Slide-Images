@@ -118,7 +118,8 @@ class DefaultPreprocessor(object):
 
     def run_case(self, image_files: List[str], seg_file: Union[str, None], plans_manager: PlansManager,
                  configuration_manager: ConfigurationManager,
-                 dataset_json: Union[dict, str]):
+                 dataset_json: Union[dict, str],
+                 lowres: bool):
         """
         seg file can be none (test cases)
 
@@ -132,7 +133,10 @@ class DefaultPreprocessor(object):
         rw = plans_manager.image_reader_writer_class()
 
         if not ".png" in image_files[0]:
-            data, info = image_from_scan(str(image_files[0]), 10, 'CCCCCC')
+            if lowres:
+                data, info = image_from_scan(str(image_files[0]), 20, 'CCCCCC')
+            else:
+                data, info = image_from_scan(str(image_files[0]), 10, 'CCCCCC')
             data_properties = {'spacing': (999, 1, 1)}
             
             # Convert data to right order
@@ -279,7 +283,6 @@ class DefaultPreprocessor(object):
         # after resampling. Useful for experimenting with sparse annotations: I can introduce sparsity after resampling
         # and don't have to create a new dataset each time I modify my experiments
         return seg
-
 
 def example_test_case_preprocessing():
     # (paths to files may need adaptations)

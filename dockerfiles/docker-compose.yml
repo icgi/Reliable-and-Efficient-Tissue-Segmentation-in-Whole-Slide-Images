@@ -1,7 +1,7 @@
 version: '2'
 services:
-  nnunet:
-    image: nnunet_image
+  tissue_segmentation:
+    image: tissue_segmentation 
     ports:
       - "5000:5000"
     build:

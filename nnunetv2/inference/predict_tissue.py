@@ -61,9 +61,10 @@ from batchgenerators.utilities.file_and_folder_operations import load_pickle
 def _preprocess_to_memory(case_id: str,
                           wsi_path: str,
                           pp: DefaultPreprocessor,
-                          plans, cfg, ds_json):
+                          plans, cfg, ds_json,
+                          lowres:bool):
     try:
-        data, _, props = pp.run_case([wsi_path], None, plans, cfg, ds_json)
+        data, _, props = pp.run_case([wsi_path], None, plans, cfg, ds_json, lowres)
     except Exception as e:
         print(f'Failed {wsi_path}: {e}')
         return case_id, None, None, wsi_path
@@ -141,7 +142,8 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                                   num_parts: int = 1,
                                   part_id: int = 0,
                                   binary_01: bool = False,
-                                  keep_parent: bool = False):
+                                  keep_parent: bool = False,
+                                  lowres: bool = False):
         
         output_folder = output_folder_or_list_of_truncated_output_files
         maybe_mkdir_p(output_folder)
@@ -150,7 +152,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
 
         if list_of_lists_or_source_folder.lower().endswith('.txt') or suffix is not None:
             print(f'[TissueNNUnetPredictor] Streaming WSI fully in memory...')
-            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, suffix, exclude, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01, keep_parent=keep_parent)
+            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, suffix, exclude, lowres=lowres, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01, keep_parent=keep_parent)
 
             return
 
@@ -241,9 +243,9 @@ class TissueNNUnetPredictor(nnUNetPredictor):
         empty_cache(self.device)
         return ret      
 
-    def _preprocess_wrapper(self, p, pp, plans, cfg, ds_json):
+    def _preprocess_wrapper(self, p, pp, plans, cfg, ds_json, lowres):
         return _preprocess_to_memory(
-            Path(p).stem, p, pp, plans, cfg, ds_json
+            Path(p).stem, p, pp, plans, cfg, ds_json, lowres
         )
 
     def _handle_result(self, fut, keep_parent, wsi_txt, cfg, plans, ds_json, binary_01, output_folder):
@@ -255,7 +257,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
 
         # corrupted slides can make _preprocess_to_memory return None
         if np_data is None:
-            print(f"Skipping corrupt slide: {wsi_path}")
+            print(f"Skipping failed slide: {wsi_path}")
             return
 
         try:
@@ -285,7 +287,6 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             torch.cuda.empty_cache()
             gc.collect()  
             
-
     def predict_wsi_streaming(
             self,
             wsi_txt: str,
@@ -295,7 +296,8 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             overwrite: bool,
             cpu_workers: int = 8,
             binary_01: bool = False,
-            keep_parent: bool = False
+            keep_parent: bool = False,
+            lowres: bool = False
     ):
         if os.path.splitext(wsi_txt)[1] == '.txt':
             with open(wsi_txt) as f:
@@ -334,7 +336,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
 
         with ThreadPoolExecutor(max_workers=cpu_workers) as pool:
             for path in wsi_paths:
-                pending.add(pool.submit(self._preprocess_wrapper, path, pp, plans, cfg, ds_json))
+                pending.add(pool.submit(self._preprocess_wrapper, path, pp, plans, cfg, ds_json, lowres))
 
                 if len(pending) >= max_in_flight:
                     done, pending = wait(pending, return_when=FIRST_COMPLETED)
@@ -391,6 +393,8 @@ def predict_tissue_entry_point():
                         help='Add suffix for what scanner type to look for when running inference on WSIs.')
     parser.add_argument('-exclude', required=False, default=None, 
                         help='Name of folder to be excluded when rglobing for WSIs in a directory.')
+    parser.add_argument('--lowres', action='store_true', required=False, default=False,
+                        help='Use this flag for a significant speed up in inference using the 20um model (segmentation quality might be slightly reduced).')
     parser.add_argument('--resenc', action='store_true', required=False, default=False,
                         help='Use the Residual encoder nnUNet (new recommended base model from author)')
     parser.add_argument('--b01', action='store_true', required=False, default=False,
@@ -473,20 +477,25 @@ def predict_tissue_entry_point():
                                 verbose_preprocessing=args.verbose,
                                 allow_tqdm=not args.disable_progress_bar)
 
+    resolution = '10' if not args.lowres else '20'
 
     if not args.resenc:
-        # initializes the network architecture, loads the checkpoint
+        print(f'Using {resolution}um model')
         predictor.initialize_from_trained_tissue_model_folder(
-            '/models/trained_on_10um',
+            f'/models/trained_on_{resolution}um',
             use_folds='all',
-            checkpoint_name='checkpoint_10um.pth',
+            checkpoint_name=f'checkpoint_{resolution}um.pth',
         )
     else:
+        print(f'Using {resolution}um model with ResEnc architecture')
         predictor.initialize_from_trained_tissue_model_folder(
-            '/models/trained_on_10um_ResEnc',
+            f'/models/trained_on_{resolution}um_ResEnc',
             use_folds='all',
-            checkpoint_name='checkpoint_10um_ResEnc.pth',
+            checkpoint_name=f'checkpoint_{resolution}um_ResEnc.pth',
         )
+
+
+
     print(f"Time for loading model {time() - t0} seconds")
 
     predicted_segmentations = predictor.predict_tissue_from_files(args.i,
@@ -501,7 +510,8 @@ def predict_tissue_entry_point():
                                                            num_parts=args.num_parts,
                                                            part_id=args.part_id,
                                                            binary_01=args.b01,
-                                                           keep_parent=args.keep_parent)
+                                                           keep_parent=args.keep_parent,
+                                                           lowres=args.lowres)
     t1 = time()
 
     print(f"Total time including model loading and inference {t1-t0} seconds")

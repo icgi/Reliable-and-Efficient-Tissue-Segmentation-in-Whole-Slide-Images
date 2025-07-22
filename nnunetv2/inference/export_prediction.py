@@ -11,6 +11,69 @@ from nnunetv2.configuration import default_num_processes
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 
+import cc3d
+import scipy.ndimage as ndi
+
+def postproc(mask: np.ndarray,
+             *,
+             keep_largest: bool = False,
+             fill_holes: bool = False,
+             min_area: int | None = None,
+             min_area_rel: float | None = None,
+             close_r: int = 0,
+             prob: np.ndarray | None = None,
+             min_mean_prob: float | None = None
+             ) -> np.ndarray:
+
+    needs_unsqueeze = False
+
+    if mask.ndim == 3 and 1 in mask.shape:
+        axis = mask.shape.index(1)
+        mask = np.squeeze(mask, axis=axis)
+        needs_unsqueeze = True
+
+    mask = mask.astype(bool)
+    
+    labels, num = cc3d.connected_components(mask, connectivity=8, return_N=True)
+
+    if num == 0:
+        out = mask.astype(np.uin8)
+        return np.expand_dims(out, axis) if needs_unsqueeze else out
+
+    sizes = np.bincount(labels.ravel())
+    sizes[0] = 0
+
+    keep = np.ones(num + 1, dtype=bool)
+
+    if keep_largest:
+        keep[:] = False
+        keep[np.argmax(sizes)] = True
+
+    if min_area:
+        keep &= sizes >= min_area
+
+    if min_area_rel is not None:
+        total_fg = sizes.sum()
+        rel_thr = int(min_area_rel * total_fg)
+        keep &= sizes >= rel_thr
+
+    if min_mean_prob is not None and prob is not None:
+        means = ndi.mean(prob, labels, index=np.arange(1, num+1))
+        bad = np.where(means < min_mean_prob)[0] + 1
+        keep[bad] = False
+
+    mask = keep[labels]
+
+    if fill_holes:
+        mask = ndi.binary_fill_holes(mask)
+
+    if close_r > 0:
+        struct = ndi.generate_binary_structure(2,1)
+        struct = ndi.iterate_structure(struct, close_r)
+        mask = ndi.binary_closing(mask, structure=struct)
+
+    out = mask.astype(np.uint8)
+    return np.expand_dims(out, axis) if needs_unsqueeze else out
 
 def convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits: Union[torch.Tensor, np.ndarray],
                                                                 plans_manager: PlansManager,
@@ -72,8 +135,11 @@ def convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits
 def export_prediction_from_logits(predicted_array_or_file: Union[np.ndarray, torch.Tensor], properties_dict: dict,
                                   configuration_manager: ConfigurationManager,
                                   plans_manager: PlansManager,
-                                  dataset_json_dict_or_file: Union[dict, str], output_file_truncated: str,
-                                  save_probabilities: bool = False, binary_01=False):
+                                  dataset_json_dict_or_file: Union[dict, str],
+                                  output_file_truncated: str,
+                                  save_probabilities: bool = False, binary_01=False,
+                                  postproc_cfg: dict = None,
+                                  extension: str = None):
     # if isinstance(predicted_array_or_file, str):
     #     tmp = deepcopy(predicted_array_or_file)
     #     if predicted_array_or_file.endswith('.npy'):
@@ -101,12 +167,21 @@ def export_prediction_from_logits(predicted_array_or_file: Union[np.ndarray, tor
     else:
         segmentation_final = ret
         del ret
+    
+    if postproc_cfg is not None:
+        segmentation_final = postproc(segmentation_final, **postproc_cfg, prob=None)
 
     if not binary_01:
         segmentation_final = segmentation_final * 255
 
     rw = plans_manager.image_reader_writer_class()
-    rw.write_seg(segmentation_final, output_file_truncated + dataset_json_dict_or_file['file_ending'],
+
+    if extension is not None:
+        output_file_name = output_file_truncated + f'_{extension}' + dataset_json_dict_or_file['file_ending']
+    else:
+        output_file_name = output_file_truncated + dataset_json_dict_or_file['file_ending']
+
+    rw.write_seg(segmentation_final, output_file_name,
                  properties_dict)
 
 

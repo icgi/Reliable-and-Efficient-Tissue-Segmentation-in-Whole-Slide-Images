@@ -50,6 +50,9 @@ from nnunetv2.utilities.label_handling.label_handling import determine_num_input
 
 from PIL import PngImagePlugin
 
+import re
+
+
 LARGE_ENOUGH_NUMBER = 1000
 PngImagePlugin.MAX_TEXT_CHUNK = LARGE_ENOUGH_NUMBER * (1024**2)
 
@@ -69,6 +72,7 @@ def _preprocess_to_memory(case_id: str,
         print(f'Failed {wsi_path}: {e}')
         return case_id, None, None, wsi_path
     return case_id, data, props, wsi_path
+
 
 
 
@@ -133,6 +137,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                                   list_of_lists_or_source_folder,
                                   output_folder_or_list_of_truncated_output_files,
                                   suffix: str, 
+                                  extension: str,
                                   exclude: str,
                                   save_probabilities: bool = False,
                                   overwrite: bool = True,
@@ -143,7 +148,8 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                                   part_id: int = 0,
                                   binary_01: bool = False,
                                   keep_parent: bool = False,
-                                  lowres: bool = False):
+                                  lowres: bool = False,
+                                  pp_cfg: dict = None):
         
         output_folder = output_folder_or_list_of_truncated_output_files
         maybe_mkdir_p(output_folder)
@@ -152,7 +158,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
 
         if list_of_lists_or_source_folder.lower().endswith('.txt') or suffix is not None:
             print(f'[TissueNNUnetPredictor] Streaming WSI fully in memory...')
-            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, suffix, exclude, lowres=lowres, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01, keep_parent=keep_parent)
+            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, suffix, extension, exclude, lowres=lowres, postproc_cfg=pp_cfg, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01, keep_parent=keep_parent)
 
             return
 
@@ -168,6 +174,8 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             folder_with_segs_from_prev_stage,
             num_parts,
             part_id,
+            pp_cfg,
+            extension
         )
 
     def predict_tissue_from_data_iterator(self,
@@ -248,7 +256,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             Path(p).stem, p, pp, plans, cfg, ds_json, lowres
         )
 
-    def _handle_result(self, fut, keep_parent, wsi_txt, cfg, plans, ds_json, binary_01, output_folder):
+    def _handle_result(self, fut, keep_parent, wsi_txt, cfg, plans, ds_json, postproc_cfg, extension, binary_01, output_folder):
         try:
             cid, np_data, props, wsi_path = fut.result()
         except Exception as e:
@@ -275,7 +283,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
 
             export_prediction_from_logits(
                 logits, props, cfg, plans, ds_json,
-                png_file, save_probabilities=False, binary_01=binary_01
+                png_file, save_probabilities=False, binary_01=binary_01, postproc_cfg=postproc_cfg, extension=extension
             )
 
         except Exception as e:
@@ -292,12 +300,14 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             wsi_txt: str,
             output_folder: str,
             suffix: str,
+            extension: str,
             exclude: str,
             overwrite: bool,
             cpu_workers: int = 8,
             binary_01: bool = False,
             keep_parent: bool = False,
-            lowres: bool = False
+            lowres: bool = False,
+            postproc_cfg: dict = None
     ):
         if os.path.splitext(wsi_txt)[1] == '.txt':
             with open(wsi_txt) as f:
@@ -341,41 +351,11 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                 if len(pending) >= max_in_flight:
                     done, pending = wait(pending, return_when=FIRST_COMPLETED)
                     for fut in done:
-                        self._handle_result(fut, keep_parent=keep_parent, wsi_txt=wsi_txt, cfg=cfg, plans=plans, ds_json=ds_json, binary_01=binary_01, output_folder=output_folder)
+                        self._handle_result(fut, keep_parent=keep_parent, wsi_txt=wsi_txt, cfg=cfg, plans=plans, ds_json=ds_json, postproc_cfg=postproc_cfg, extension=extension, binary_01=binary_01, output_folder=output_folder)
 
             for fut in pending:
-                self._handle_result(fut, keep_parent=keep_parent, wsi_txt=wsi_txt, cfg=cfg, plans=plans, ds_json=ds_json, binary_01=binary_01, output_folder=output_folder)
+                self._handle_result(fut, keep_parent=keep_parent, wsi_txt=wsi_txt, cfg=cfg, plans=plans, ds_json=ds_json, postproc_cfg=postproc_cfg, extension=extension, binary_01=binary_01, output_folder=output_folder)
 
-            # futures = [cpu_pool.submit(_preprocess_to_memory,
-            #                            Path(p).stem, p,
-            #                            pp, plans, cfg, ds_json)
-            #                         for p in wsi_paths]
-
-            # for fut in as_completed(futures):
-            #     cid, np_data, props, wsi_path = fut.result()
-
-            #     if np_data is not None:
-            #         print(f"Now predicting {cid}")
-            #         logits = self.predict_logits_from_preprocessed_data(
-            #             torch.from_numpy(np_data).to(self.device)
-            #         ).cpu()
-
-
-            #         if keep_parent:
-            #             path_format = Path(wsi_path).relative_to(Path(wsi_txt)).parent
-            #             png_file = os.path.join(output_folder, path_format, cid)
-            #             os.makedirs(os.path.dirname(png_file), exist_ok=True)
-            #         else:
-            #             png_file = os.path.join(output_folder, cid)
-
-            #         export_prediction_from_logits(
-            #             logits, props, cfg, plans, ds_json,
-            #             png_file, save_probabilities=False, binary_01=binary_01
-            #         )
-
-            #         del np_data, logits
-            #         torch.cuda.empty_cache()
-        
 def predict_tissue_entry_point():
     import argparse
     parser = argparse.ArgumentParser(description='Use this to run inference with nnU-Net. This function is used when '
@@ -395,6 +375,8 @@ def predict_tissue_entry_point():
                         help='Name of folder to be excluded when rglobing for WSIs in a directory.')
     parser.add_argument('--lowres', action='store_true', required=False, default=False,
                         help='Use this flag for a significant speed up in inference using the 20um model (segmentation quality might be slightly reduced).')
+    parser.add_argument('-extension', required=False, default=None,
+                        help='Add file extension to file. File extension will be added with a _.')
     parser.add_argument('--resenc', action='store_true', required=False, default=False,
                         help='Use the Residual encoder nnUNet (new recommended base model from author)')
     parser.add_argument('--b01', action='store_true', required=False, default=False,
@@ -402,6 +384,18 @@ def predict_tissue_entry_point():
     parser.add_argument('--keep_parent', action='store_true', required=False, default=False,
                         help='Include this flag if you want each prediction to be saved in a parent folder in the same order as the source folder.')
     ########################################################################################
+
+
+    ############################ PostProcessing Parameters ################################
+    parser.add_argument('-pp',
+                        action='append', default=[],
+                        metavar="RULE",
+                        help=(
+                            'Post-processing rule(s). May be given multiple times. \n'
+                            'Accepted tokens: \n'
+                            ' keepLargest, fillHoles, strict, lite,\n'
+                            ' minArea=<int>, minAreaRel=<float>, close_r=<int>'))
+    #######################################################################################
 
     parser.add_argument('-step_size', type=float, required=False, default=0.5,
                         help='Step size for sliding window prediction. The larger it is the faster but less accurate '
@@ -443,6 +437,29 @@ def predict_tissue_entry_point():
                              'jobs)')
 
     args = parser.parse_args()
+
+    pp_cfg = dict(keep_largest=False, fill_holes=False,
+               min_area=None, min_area_rel=None, close_r=0)
+    
+    presets = {
+        'strict': dict(keep_largest=True, fill_holes=True, min_area=1000),
+        'lite': dict(fill_holes=True, min_area_rel=0.002)
+    }
+
+    for t in args.pp:
+        if t in presets:
+            pp_cfg.update(presets[t]); continue
+        if t == 'keepLargest':
+            pp_cfg['keep_largest'] = True; continue
+        if t == 'fillHoles':
+            pp_cfg['fill_holes'] = True; continue
+
+        m = re.fullmatch(r'minArea=(\d+)', t)
+        if m: pp_cfg['min_area'] = int(m[1]); continue
+        m = re.fullmatch(r'minAreaRel=([\d.]+)', t)
+        if m: pp_cfg['min_area_rel'] = float(m[1]); continue
+        m = re.fullmatch(r'close_r=(\d+)', t)
+        if m: pp_cfg['close_r'] = int(m[1]); continue
 
 
     if not isdir(args.o):
@@ -503,6 +520,7 @@ def predict_tissue_entry_point():
                                                            save_probabilities=False,
                                                            overwrite=not args.continue_prediction,
                                                            suffix=args.suffix,
+                                                           extension=args.extension,
                                                            exclude=args.exclude,
                                                            num_processes_preprocessing=args.npp,
                                                            num_processes_segmentation_export=args.nps,
@@ -511,7 +529,8 @@ def predict_tissue_entry_point():
                                                            part_id=args.part_id,
                                                            binary_01=args.b01,
                                                            keep_parent=args.keep_parent,
-                                                           lowres=args.lowres)
+                                                           lowres=args.lowres,
+                                                           pp_cfg=pp_cfg)
     t1 = time()
 
     print(f"Total time including model loading and inference {t1-t0} seconds")

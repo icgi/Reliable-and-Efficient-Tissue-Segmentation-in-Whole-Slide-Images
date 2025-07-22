@@ -207,7 +207,9 @@ class nnUNetPredictor(object):
                            num_processes_segmentation_export: int = default_num_processes,
                            folder_with_segs_from_prev_stage: str = None,
                            num_parts: int = 1,
-                           part_id: int = 0):
+                           part_id: int = 0,
+                           pp_cfg: dict = None,
+                           extension: str = None):
         """
         This is nnU-Net's default function for making predictions. It works best for batch predictions
         (predicting many images at once).
@@ -329,7 +331,9 @@ class nnUNetPredictor(object):
     def predict_from_data_iterator(self,
                                    data_iterator,
                                    save_probabilities: bool = False,
-                                   num_processes_segmentation_export: int = default_num_processes):
+                                   num_processes_segmentation_export: int = default_num_processes,
+                                   postproc_cfg: dict = None,
+                                   extension: str = None):
         """
         each element returned by data_iterator must be a dict with 'data', 'ofile' and 'data_properties' keys!
         If 'ofile' is None, the result will be returned instead of written to a file
@@ -370,7 +374,7 @@ class nnUNetPredictor(object):
                         export_pool.starmap_async(
                             export_prediction_from_logits,
                             ((prediction, properties, self.configuration_manager, self.plans_manager,
-                              self.dataset_json, ofile, save_probabilities),)
+                              self.dataset_json, ofile, save_probabilities, postproc_cfg, extension),)
                         )
                     )
                 else:

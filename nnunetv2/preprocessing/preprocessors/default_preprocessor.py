@@ -119,7 +119,7 @@ class DefaultPreprocessor(object):
     def run_case(self, image_files: List[str], seg_file: Union[str, None], plans_manager: PlansManager,
                  configuration_manager: ConfigurationManager,
                  dataset_json: Union[dict, str],
-                 lowres: bool):
+                 lowres: bool = False):
         """
         seg file can be none (test cases)
 

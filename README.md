@@ -33,7 +33,7 @@ We also test the trade-offs in performance and inference speed at different reso
 |         20         | ResEnc       |    98.26       |          0.89      |
 
 ## Installation and Setup
-Firstly, download the models folder: 
+Firstly, download the models folder containing the various model weights: 
 
 ```bash
 pip install gdown
@@ -41,7 +41,7 @@ gdown 12jdV2BTT0sZX5SciBNNuwT_ZBQhITKdQ
 unzip models.zip
 ```
 
-Alternatively, you can download it directly from the gdrive link:
+Alternatively, you can download it directly from the Google drive link:
 
 https://drive.google.com/file/d/12jdV2BTT0sZX5SciBNNuwT_ZBQhITKdQ/view?usp=sharing
 Place and unzip the folder inside the project folder like this:

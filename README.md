@@ -5,7 +5,7 @@ This is the code repo for our paper "Reliable and Efficient Tissue Segmentation 
 - Outputting masks in a more user-friendly way ([0,255] instead of [0,1])
 - Removing the need to specify a model path, as this is done automatically.
 
-The model assumes that the input images are downsampled to 10 μm per pixel. The network is image dimension invariant by nature, but we can not guarantee quality segmentation if used at other resolutions.
+The model assumes that the input images are downsampled to 10 μm per pixel. The network is scale-invariant by nature, but we can not guarantee quality segmentation if used at other resolutions.
 
 ## Table of Contents
 1. [Results](#results)

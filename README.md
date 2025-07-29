@@ -64,7 +64,7 @@ project_root/
 └──dockerfiles/    
 ```
 
-To set up the environment, simply build and run the Docker project within the dockerfiles folder:
+To set up the environment, build and run the Docker project within the dockerfiles folder:
 
 ```bash
 cd /path/to/dockerfiles/
@@ -135,15 +135,15 @@ nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -extension name_exte
 ```
 
 ### Post processing
-The nnUNet pipeline should already create clean outputs that don't require postprocessing. However, we include a few postprocessing options if needed. The -pp parameter can take in several rules. For simple use, we recommend using the two presets included (lite/strict). 
+In most cases, the nnUNet pipeline should already create clean outputs that don't require postprocessing. However, we include a few postprocessing options if needed. The -pp parameter can take in several rules. For simple use, we recommend using the two presets included (lite/strict). 
 
 Lite rule:
- - Fille holes
+ - Fill holes
  - Min area relative 0.002
 
 Strict rule:
- - Keep largest only
- - Fille holes
+ - Keep the largest only
+ - Fill holes
  - Min area 1000 pixels
 
 ```bash
@@ -157,13 +157,13 @@ nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -pp min_area_rel=0.0
 ```
 
 ### Keep parent
-If you want output predictions to be saved in their respective parent folders, use the 'keep_parent' flag.
+If you want output predictions to be saved in their respective parent folders, use the 'keep_parent' flag. The search for WSIs will occur recursively and can be performed on multiple levels; therefore, the output will vary depending on the starting path.
 
 ```bash
 nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -suffix suffix_name --keep_parent
 ```
 
-For scans stored in unique ID folders, the structure would be saved like this:
+For example, scans stored in unique ID folders, the structure would be saved like this:
 
 ```plaintext
 output_folder/                                                              
@@ -189,7 +189,7 @@ nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --resenc
 ```
 
 ### Binary [0,1] output
-We have modified the pipeline to output [0,255] instead of the original [0,1] output. To get **binary [0,1]** output. please use the **--b01** flag during inference:
+We have modified the pipeline to output [0,255] instead of the original [0,1] output. To get **binary [0,1]** output, please use the **--b01** flag during inference:
 
 ```bash
 nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --b01

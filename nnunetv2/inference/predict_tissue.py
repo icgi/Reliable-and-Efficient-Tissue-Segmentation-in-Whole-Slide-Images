@@ -438,28 +438,31 @@ def predict_tissue_entry_point():
 
     args = parser.parse_args()
 
-    pp_cfg = dict(keep_largest=False, fill_holes=False,
-               min_area=None, min_area_rel=None, close_r=0)
+    if args.pp:
+        pp_cfg = dict(keep_largest=False, fill_holes=False,
+                min_area=None, min_area_rel=None, close_r=0)
     
-    presets = {
-        'strict': dict(keep_largest=True, fill_holes=True, min_area=1000),
-        'lite': dict(fill_holes=True, min_area_rel=0.002)
-    }
+        presets = {
+            'strict': dict(keep_largest=True, fill_holes=True, min_area=1000),
+            'lite': dict(fill_holes=True, min_area_rel=0.002)
+        }
 
-    for t in args.pp:
-        if t in presets:
-            pp_cfg.update(presets[t]); continue
-        if t == 'keepLargest':
-            pp_cfg['keep_largest'] = True; continue
-        if t == 'fillHoles':
-            pp_cfg['fill_holes'] = True; continue
+        for t in args.pp:
+            if t in presets:
+                pp_cfg.update(presets[t]); continue
+            if t == 'keepLargest':
+                pp_cfg['keep_largest'] = True; continue
+            if t == 'fillHoles':
+                pp_cfg['fill_holes'] = True; continue
 
-        m = re.fullmatch(r'minArea=(\d+)', t)
-        if m: pp_cfg['min_area'] = int(m[1]); continue
-        m = re.fullmatch(r'minAreaRel=([\d.]+)', t)
-        if m: pp_cfg['min_area_rel'] = float(m[1]); continue
-        m = re.fullmatch(r'close_r=(\d+)', t)
-        if m: pp_cfg['close_r'] = int(m[1]); continue
+            m = re.fullmatch(r'minArea=(\d+)', t)
+            if m: pp_cfg['min_area'] = int(m[1]); continue
+            m = re.fullmatch(r'minAreaRel=([\d.]+)', t)
+            if m: pp_cfg['min_area_rel'] = float(m[1]); continue
+            m = re.fullmatch(r'close_r=(\d+)', t)
+            if m: pp_cfg['close_r'] = int(m[1]); continue
+    else:
+        pp_cfg = args.pp
 
 
     if not isdir(args.o):

@@ -168,7 +168,7 @@ def export_prediction_from_logits(predicted_array_or_file: Union[np.ndarray, tor
         segmentation_final = ret
         del ret
     
-    if postproc_cfg is not None:
+    if postproc_cfg:
         segmentation_final = postproc(segmentation_final, **postproc_cfg, prob=None)
 
     if not binary_01:

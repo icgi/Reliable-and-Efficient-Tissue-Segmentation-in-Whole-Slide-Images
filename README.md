@@ -5,7 +5,7 @@ This is the code repo for our paper "Reliable and Efficient Tissue Segmentation 
 - Outputting masks in a more user-friendly way ([0,255] instead of [0,1])
 - Removing the need to specify a model path, as this is done automatically.
 
-The model assumes that the input images are downsampled to 10 μm per pixel. The network is image dimension invariant by nature, but we can not guarantee quality segmentation if used at other resolutions.
+The model assumes that the input images are downsampled to 10 μm per pixel. The network is scale-invariant by nature, but we can not guarantee quality segmentation if used at other resolutions.
 
 ## Table of Contents
 1. [Results](#results)
@@ -33,7 +33,7 @@ We also test the trade-offs in performance and inference speed at different reso
 |         20         | ResEnc       |    98.26       |          0.89      |
 
 ## Installation and Setup
-Firstly, download the models folder: 
+Firstly, download the models folder containing the various model weights: 
 
 ```bash
 pip install gdown
@@ -41,7 +41,7 @@ gdown 12jdV2BTT0sZX5SciBNNuwT_ZBQhITKdQ
 unzip models.zip
 ```
 
-Alternatively, you can download it directly from the gdrive link:
+Alternatively, you can download it directly from the Google drive link:
 
 https://drive.google.com/file/d/12jdV2BTT0sZX5SciBNNuwT_ZBQhITKdQ/view?usp=sharing
 Place and unzip the folder inside the project folder like this:
@@ -64,7 +64,7 @@ project_root/
 └──dockerfiles/    
 ```
 
-To set up the environment, simply build and run the Docker project within the dockerfiles folder:
+To set up the environment, build and run the Docker project within the dockerfiles folder:
 
 ```bash
 cd /path/to/dockerfiles/
@@ -85,6 +85,8 @@ nnUNetv2_predict_tissue
  -o /path/to/output \         # Output path (will be output in a flat layout unless the keep_parent flag is included).
  -suffix suffix_name \        # Define WSI file ending to search for (ndpi, svs, etc.).
  -exclude exclusion_folder \  # Name of folder to be ignored during search for slides in a path.
+ -extension file_extension \  # Applies an extension to the file name, separated with a _.
+ -pp rule \                   # Postprocessing. Takes preconfigured rules (lite/strict) or you can adjust yourself by setting each parameter separately. See full list with the help -h flag                 
  --keep_parent \              # Saves output in same directory layout as input scans.
  --resenc \                   # Use the Residual Encoder network (resource-heavy and significant increase in inference time).
  --lowres \                   # Use 20 um/px instead of 10 um/px model (Much faster with similar performance to original model).
@@ -111,10 +113,13 @@ The layout for the text file should look like this:
 ...
 ```
 
+### Suffix
 Alternatively, you can specify a path to WSIs by including the file ending suffix (.svs, .ndpi, etc.).
 ```bash
 nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -suffix suffix_name
 ```
+
+### Exclude
 
 By setting the exclude flag, you can exclude unwanted folders from projects (excluded scans, etc.). 
 
@@ -122,13 +127,43 @@ By setting the exclude flag, you can exclude unwanted folders from projects (exc
 nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -suffix suffix_name -exclude exclusion_folder
 ```
 
-If you want output predictions to be saved in their respective parent folders, use the 'keep_parent' flag.
+### Extension
+If your pipeline expects a certain extension to a filename, you can include extensions with -extension. It will automatically include "_" to separate the name and extension.
+
+```bash
+nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -extension name_extension
+```
+
+### Post processing
+In most cases, the nnUNet pipeline should already create clean outputs that don't require postprocessing. However, we include a few postprocessing options if needed. The -pp parameter can take in several rules. For simple use, we recommend using the two presets included (lite/strict). 
+
+Lite rule:
+ - Fill holes
+ - Min area relative 0.002
+
+Strict rule:
+ - Keep the largest only
+ - Fill holes
+ - Min area 1000 pixels
+
+```bash
+nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -pp (lite/strict)
+```
+
+For more advanced users, you can adjust each parameter manually by listing several pp arguments. Example:
+
+```bash
+nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -pp min_area_rel=0.002 -pp fill_holes=True -pp close_r=8
+```
+
+### Keep parent
+If you want output predictions to be saved in their respective parent folders, use the 'keep_parent' flag. The search for WSIs will occur recursively and can be performed on multiple levels; therefore, the output will vary depending on the starting path.
 
 ```bash
 nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -suffix suffix_name --keep_parent
 ```
 
-For scans stored in unique ID folders, the structure would be saved like this:
+For example, scans stored in unique ID folders, the structure would be saved like this:
 
 ```plaintext
 output_folder/                                                              
@@ -139,31 +174,35 @@ output_folder/
 └── ...    
 ```
 
+### Lowres (20um/px)
 While our paper illustrates our 10 um/px model, giving a good balance in accuracy and efficiency, the 20 um/px model can often be a good enough alternative. With more than 3 times faster segmentation speed, it only gives a slight reduction in segmentation accuracy. If you don't require highly accurate masks, we recommend using the 20 um/px model as the performance is very similar, with a great boost in inference speed. To use the 20 um/px model, use the lowres flag.
 
 ```bash
 nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --lowres
 ```
 
-
+### Resenc (residual encoder UNet)
 By default, the standard nnUNetv2 model will be used. If you want to use the **residual encoder (ResEnc)** model, please use the **-resenc** flag. Please be aware that inference time will be slightly slower due to the complexity of the ResEnc network. 
 
 ```bash
 nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --resenc
 ```
 
-We have modified the pipeline to output [0,255] instead of the original [0,1] output. To get **binary [0,1]** output. please use the **--b01** flag during inference:
+### Binary [0,1] output
+We have modified the pipeline to output [0,255] instead of the original [0,1] output. To get **binary [0,1]** output, please use the **--b01** flag during inference:
 
 ```bash
 nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --b01
 ```
 
+### Continue prediction
 If you have an incomplete run of segmentation masks, you can continue where the model stopped by running the continue_prediction flag.
 
 ```bash
 nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --continue_prediction
 ```
 
+### Help
 The nnU-Net architecture contains additional arguments not listed here. Please use the help flag 'h' to see more. 
 
 ```bash

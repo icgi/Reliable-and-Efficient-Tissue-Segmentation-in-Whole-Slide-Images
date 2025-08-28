@@ -1,6 +1,6 @@
 # Reliable and Efficient Tissue Segmentation in Whole-Slide Images 
 
-This is the code repo for our paper "Reliable and Efficient Tissue Segmentation in Whole-Slide Images". The repository introduces a simple-to-use pipeline for segmenting Tissue in Whole-Slide images (WSIs). We include the pretrained weights for our best model as well as a Docker project for easy setup and use. Our model is based on the nnU-Net pipeline (https://github.com/MIC-DKFZ/nnUNetwith). We have included several modifications to the pipeline adapted for WSIs to simplify inference. This includes: 
+This is the code repo for our paper "Reliable and Efficient Tissue Segmentation in Whole-Slide Images" (https://openreview.net/pdf?id=3gsNUjFi1q).  The repository introduces a simple-to-use pipeline for segmenting Tissue in Whole-Slide images (WSIs). We include the pretrained weights for our best model as well as a Docker project for easy setup and use. Our model is based on the nnU-Net pipeline (https://github.com/MIC-DKFZ/nnUNetwith). We have included several modifications to the pipeline adapted for WSIs to simplify inference. This includes: 
 - Removing the need to add a modality ID at the end of input scans (some_scan_0000.png, some_scan_0001.png, etc.)
 - Outputting masks in a more user-friendly way ([0,255] instead of [0,1])
 - Removing the need to specify a model path, as this is done automatically.

@@ -68,12 +68,12 @@ To set up the environment, build and run the Docker project within the dockerfil
 
 ```bash
 cd /path/to/dockerfiles/
-docker-compose build nnunet && docker-compose run nnunet
+docker-compose build tissue_segmentation && docker-compose run tissue_segmentation
 ```
 
 If you have already built a container, to avoid rebuilding every time, you can use:
 ```bash
-docker-compose run nnunet
+docker-compose run tissue_segmentation
 ```
 
 ## Running inference for tissue segmentation

@@ -344,6 +344,9 @@ class TissueNNUnetPredictor(nnUNetPredictor):
         max_in_flight = cpu_workers * 2
         pending = set()
 
+        completed_counter = 0
+        total_count = len(wsi_paths)
+
         with ThreadPoolExecutor(max_workers=cpu_workers) as pool:
             for path in wsi_paths:
                 pending.add(pool.submit(self._preprocess_wrapper, path, pp, plans, cfg, ds_json, lowres))
@@ -353,8 +356,14 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                     for fut in done:
                         self._handle_result(fut, keep_parent=keep_parent, wsi_txt=wsi_txt, cfg=cfg, plans=plans, ds_json=ds_json, postproc_cfg=postproc_cfg, extension=extension, binary_01=binary_01, output_folder=output_folder)
 
+                        completed_counter += 1
+                        print(f"{completed_counter}/{total_count} scans completed...")
+
             for fut in pending:
                 self._handle_result(fut, keep_parent=keep_parent, wsi_txt=wsi_txt, cfg=cfg, plans=plans, ds_json=ds_json, postproc_cfg=postproc_cfg, extension=extension, binary_01=binary_01, output_folder=output_folder)
+
+                completed_counter += 1
+                print(f"{completed_counter}/{total_count} scans completed...")
 
 def predict_tissue_entry_point():
     import argparse

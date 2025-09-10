@@ -182,7 +182,7 @@ nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --lowres
 ```
 
 ### Resenc (residual encoder UNet)
-By default, the standard nnUNetv2 model will be used. If you want to use the **residual encoder (ResEnc)** model, please use the **-resenc** flag. Please be aware that inference time will be slightly slower due to the complexity of the ResEnc network. 
+By default, the standard nnUNetv2 model will be used. If you want to use the **residual encoder (ResEnc)** model, please use the **-resenc** flag. Please be aware that inference time will be slightly longer due to the complexity of the ResEnc network. 
 
 ```bash
 nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --resenc

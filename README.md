@@ -86,7 +86,8 @@ nnUNetv2_predict_tissue
  -suffix suffix_name \        # Define WSI file ending to search for (ndpi, svs, etc.).
  -exclude exclusion_folder \  # Name of folder to be ignored during search for slides in a path.
  -extension file_extension \  # Applies an extension to the file name, separated with a _.
- -pp rule \                   # Postprocessing. Takes preconfigured rules (lite/strict) or you can adjust yourself by setting each parameter separately. See full list with the help -h flag                 
+ -pp rule \                   # Postprocessing. Takes preconfigured rules (lite/strict) or you can adjust yourself by setting each parameter separately. See full list with the help -h flag
+
  --keep_parent \              # Saves output in same directory layout as input scans.
   -depth_index \              # Define relative file parent directory depth for keep_parent for txt fie input
 

@@ -166,10 +166,10 @@ If you want output predictions to be saved in their respective parent folders, u
 nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -suffix suffix_name --keep_parent
 ```
 
-*If you are using a txt scan list as input instead of a directory path of scans, you need to define the depth of the parent data folder, as we cannot automatically define the base of the parent folder without knowing the depth location of the parent folder! For example, if we have a scan path /path/to/parent/rest/of/path the parent path starts at depth 2 with 0-indexing, giving the parent path /parent/rest/of/path. The default depth is set to 4 if not defined.*
+*If you are inputting a txt scan list instead of a scan directory path, we can not automatically know the relative parent path to each scan, and we have to manually specify the parent depth with the depth_index argument. It is 0-indexed and is set to 4 by default if not specified. For example, -depth_index 2 for the path /layer/layer/parent/layer/layer/file will save the output to parent folder /parent/layer/layer/file*
 
 ```bash
-nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -suffix suffix_name --keep_parent -depth_index 2
+nnUNetv2_predict_tissue -i /path/to/scan_list.txt -o /path/to/output -suffix suffix_name --keep_parent -depth_index 2
 ```
 
 

@@ -148,6 +148,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                                   part_id: int = 0,
                                   binary_01: bool = False,
                                   keep_parent: bool = False,
+                                  depth_index: int = 4,
                                   lowres: bool = False,
                                   pp_cfg: dict = None):
         
@@ -158,7 +159,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
 
         if list_of_lists_or_source_folder.lower().endswith('.txt') or suffix is not None:
             print(f'[TissueNNUnetPredictor] Streaming WSI fully in memory...')
-            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, suffix, extension, exclude, lowres=lowres, postproc_cfg=pp_cfg, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01, keep_parent=keep_parent)
+            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, suffix, extension, exclude, lowres=lowres, postproc_cfg=pp_cfg, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01, keep_parent=keep_parent, depth_index=depth_index)
 
             return
 
@@ -256,12 +257,13 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             Path(p).stem, p, pp, plans, cfg, ds_json, lowres
         )
 
-    def _handle_result(self, fut, keep_parent, wsi_txt, cfg, plans, ds_json, postproc_cfg, extension, binary_01, output_folder):
+    def _handle_result(self, fut, keep_parent, depth_index, wsi_txt, cfg, plans, ds_json, postproc_cfg, extension, binary_01, output_folder):
         try:
             cid, np_data, props, wsi_path = fut.result()
         except Exception as e:
             print(f"Preprocessing failed for {wsi_path}: {e}")
             return
+
 
         # corrupted slides can make _preprocess_to_memory return None
         if np_data is None:
@@ -275,7 +277,11 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             ).cpu()
 
             if keep_parent:
-                rel_parent = Path(wsi_path).relative_to(Path(wsi_txt)).parent
+                if os.path.isfile(wsi_txt):
+                    get_dataset = lambda x: "/".join(x.split("/")[depth_index:-1])
+                    rel_parent = get_dataset(wsi_path)
+                else:
+                    rel_parent = Path(wsi_path).relative_to(Path(wsi_txt)).parent
                 png_file = os.path.join(output_folder, rel_parent, cid)
                 os.makedirs(os.path.dirname(png_file), exist_ok=True)
             else:
@@ -306,9 +312,12 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             cpu_workers: int = 8,
             binary_01: bool = False,
             keep_parent: bool = False,
+            depth_index: int = 4,
             lowres: bool = False,
             postproc_cfg: dict = None
     ):
+        parent_paths = None
+
         if os.path.splitext(wsi_txt)[1] == '.txt':
             with open(wsi_txt) as f:
                 wsi_paths = [ln.strip() for ln in f if ln.strip()] 
@@ -354,13 +363,13 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                 if len(pending) >= max_in_flight:
                     done, pending = wait(pending, return_when=FIRST_COMPLETED)
                     for fut in done:
-                        self._handle_result(fut, keep_parent=keep_parent, wsi_txt=wsi_txt, cfg=cfg, plans=plans, ds_json=ds_json, postproc_cfg=postproc_cfg, extension=extension, binary_01=binary_01, output_folder=output_folder)
+                        self._handle_result(fut, keep_parent=keep_parent, depth_index=depth_index, wsi_txt=wsi_txt, cfg=cfg, plans=plans, ds_json=ds_json, postproc_cfg=postproc_cfg, extension=extension, binary_01=binary_01, output_folder=output_folder)
 
                         completed_counter += 1
                         print(f"{completed_counter}/{total_count} scans completed...")
 
             for fut in pending:
-                self._handle_result(fut, keep_parent=keep_parent, wsi_txt=wsi_txt, cfg=cfg, plans=plans, ds_json=ds_json, postproc_cfg=postproc_cfg, extension=extension, binary_01=binary_01, output_folder=output_folder)
+                self._handle_result(fut, keep_parent=keep_parent, depth_index=depth_index, wsi_txt=wsi_txt, cfg=cfg, plans=plans, ds_json=ds_json, postproc_cfg=postproc_cfg, extension=extension, binary_01=binary_01, output_folder=output_folder)
 
                 completed_counter += 1
                 print(f"{completed_counter}/{total_count} scans completed...")
@@ -392,6 +401,8 @@ def predict_tissue_entry_point():
                         help='Converts output masks to binary 0,1 instead of standard 0,255')
     parser.add_argument('--keep_parent', action='store_true', required=False, default=False,
                         help='Include this flag if you want each prediction to be saved in a parent folder in the same order as the source folder.')
+    parser.add_argument('--depth_index', type=int, required=False, default=4,
+                        help='Sets the relative path depth for parent directory if keep_parent is set with a txt list as input.')
     ########################################################################################
 
 
@@ -541,6 +552,7 @@ def predict_tissue_entry_point():
                                                            part_id=args.part_id,
                                                            binary_01=args.b01,
                                                            keep_parent=args.keep_parent,
+                                                           depth_index=args.depth_index,
                                                            lowres=args.lowres,
                                                            pp_cfg=pp_cfg)
     t1 = time()

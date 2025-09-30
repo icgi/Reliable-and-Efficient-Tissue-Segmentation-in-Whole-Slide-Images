@@ -137,28 +137,6 @@ If your pipeline expects a certain extension to a filename, you can include exte
 nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -extension name_extension
 ```
 
-### Post processing
-In most cases, the nnUNet pipeline should already create clean outputs that don't require postprocessing. However, we include a few postprocessing options if needed. The -pp parameter can take in several rules. For simple use, we recommend using the two presets included (lite/strict). 
-
-Lite rule:
- - Fill holes
- - Min area relative 0.002
-
-Strict rule:
- - Keep the largest only
- - Fill holes
- - Min area 1000 pixels
-
-```bash
-nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -pp (lite/strict)
-```
-
-For more advanced users, you can adjust each parameter manually by listing several pp arguments. Example:
-
-```bash
-nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -pp min_area_rel=0.002 -pp fill_holes=True -pp close_r=8
-```
-
 ### Keep parent
 If you want output predictions to be saved in their respective parent folders, use the 'keep_parent' flag. The search for WSIs will occur recursively and can be performed on multiple levels; therefore, the output will vary depending on the starting path.
 
@@ -210,6 +188,28 @@ If you have an incomplete run of segmentation masks, you can continue where the 
 
 ```bash
 nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --continue_prediction
+```
+
+### Post processing
+In most cases, the nnUNet pipeline should already create clean outputs that don't require postprocessing. However, we include a few postprocessing options if needed. The -pp parameter can take in several rules. For simple use, we recommend using the two presets included (lite/strict). 
+
+Lite rule:
+ - Fill holes
+ - Min area relative 0.002
+
+Strict rule:
+ - Keep the largest only
+ - Fill holes
+ - Min area 1000 pixels
+
+```bash
+nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -pp (lite/strict)
+```
+
+For more advanced users, you can adjust each parameter manually by listing several pp arguments. Example:
+
+```bash
+nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -pp min_area_rel=0.002 -pp fill_holes=True -pp close_r=8
 ```
 
 ### Help

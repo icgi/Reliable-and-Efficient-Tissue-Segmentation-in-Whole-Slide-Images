@@ -88,6 +88,8 @@ nnUNetv2_predict_tissue
  -extension file_extension \  # Applies an extension to the file name, separated with a _.
  -pp rule \                   # Postprocessing. Takes preconfigured rules (lite/strict) or you can adjust yourself by setting each parameter separately. See full list with the help -h flag                 
  --keep_parent \              # Saves output in same directory layout as input scans.
+  -depth_index \              # Define relative file parent directory depth for keep_parent for txt fie input
+
  --resenc \                   # Use the Residual Encoder network (resource-heavy and significant increase in inference time).
  --lowres \                   # Use 20 um/px instead of 10 um/px model (Much faster with similar performance to original model).
  --b01 \                      # Get output in binary [0,1] instead of [0,255].
@@ -162,6 +164,13 @@ If you want output predictions to be saved in their respective parent folders, u
 ```bash
 nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -suffix suffix_name --keep_parent
 ```
+
+*If you are using a txt scan list as input instead of a directory path of scans, you need to define the depth of the parent data folder, as we cannot automatically define the base of the parent folder without knowing the depth location of the parent folder! For example, if we have a scan path /path/to/parent/rest/of/path the parent path starts at depth 2 with 0-indexing, giving the parent path /parent/rest/of/path. The default depth is set to 4 if not defined.*
+
+```bash
+nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output -suffix suffix_name --keep_parent -depth_index 2
+```
+
 
 For example, scans stored in unique ID folders, the structure would be saved like this:
 

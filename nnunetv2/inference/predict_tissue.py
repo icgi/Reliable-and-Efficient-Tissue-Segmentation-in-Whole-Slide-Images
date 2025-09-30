@@ -338,7 +338,8 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             predictions = [p.stem for p in predictions]
 
             for wp in wsi_paths:
-                filename = os.path.basename(wp).split('.')[0]
+                #filename = os.path.basename(wp).split('.')[0]
+                filename = Path(wp).stem
                 if not filename in predictions:
                     files_for_inference.append(wp)
 

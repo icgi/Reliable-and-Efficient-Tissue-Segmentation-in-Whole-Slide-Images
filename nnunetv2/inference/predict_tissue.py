@@ -316,8 +316,6 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             lowres: bool = False,
             postproc_cfg: dict = None
     ):
-        parent_paths = None
-
         if os.path.splitext(wsi_txt)[1] == '.txt':
             with open(wsi_txt) as f:
                 wsi_paths = [ln.strip() for ln in f if ln.strip()] 
@@ -468,20 +466,40 @@ def predict_tissue_entry_point():
             'lite': dict(fill_holes=True, min_area_rel=0.002)
         }
 
+        valid_pp = False
+
         for t in args.pp:
             if t in presets:
-                pp_cfg.update(presets[t]); continue
+                pp_cfg.update(presets[t]) 
+                valid_pp = True
+                continue
             if t == 'keepLargest':
-                pp_cfg['keep_largest'] = True; continue
+                pp_cfg['keep_largest'] = True
+                valid_pp = True
+                continue
             if t == 'fillHoles':
-                pp_cfg['fill_holes'] = True; continue
+                pp_cfg['fill_holes'] = True
+                valid_pp = True
+                continue
 
             m = re.fullmatch(r'minArea=(\d+)', t)
-            if m: pp_cfg['min_area'] = int(m[1]); continue
+            if m:
+                pp_cfg['min_area'] = int(m[1])
+                valid_pp = True
+                continue
             m = re.fullmatch(r'minAreaRel=([\d.]+)', t)
-            if m: pp_cfg['min_area_rel'] = float(m[1]); continue
+            if m:
+                pp_cfg['min_area_rel'] = float(m[1])
+                valid_pp = True
+                continue
             m = re.fullmatch(r'close_r=(\d+)', t)
-            if m: pp_cfg['close_r'] = int(m[1]); continue
+            if m:
+                pp_cfg['close_r'] = int(m[1])
+                valid_pp = True
+                continue
+
+        if not valid_pp:
+            raise ValueError("Invalid input for post processing. See -h for more details on correct usage.")
     else:
         pp_cfg = args.pp
 

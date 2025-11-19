@@ -323,7 +323,7 @@ def image_from_scan(scan_path, target_mpp, bg_value_hex_str):
 
     return resized_image, info
 
-def overlay_mask(image, mask, mode="outline", color=(0, 0, 255), thickness=30, alpha=0.4):
+def overlay_mask(image, mask, mode="fill", color=(0,255,0), thickness=20, alpha=0.4):
     """Return overlayed image."""
     if mode == "outline":
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)

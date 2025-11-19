@@ -139,6 +139,8 @@ class DefaultPreprocessor(object):
                 data, info = image_from_scan(str(image_files[0]), 10, 'CCCCCC')
             data_properties = {'spacing': (999, 1, 1)}
             
+            original_image = data.copy()
+
             # Convert data to right order
             data = np.moveaxis(data, -1, 0)
             data = data[:, np.newaxis, :, :]
@@ -155,12 +157,12 @@ class DefaultPreprocessor(object):
 
         data, seg = self.run_case_npy(data, seg, data_properties, plans_manager, configuration_manager,
                                       dataset_json)
-        return data, seg, data_properties
+        return data, seg, data_properties, original_image
 
     def run_case_save(self, output_filename_truncated: str, image_files: List[str], seg_file: str,
                       plans_manager: PlansManager, configuration_manager: ConfigurationManager,
                       dataset_json: Union[dict, str]):
-        data, seg, properties = self.run_case(image_files, seg_file, plans_manager, configuration_manager, dataset_json)
+        data, seg, properties, _ = self.run_case(image_files, seg_file, plans_manager, configuration_manager, dataset_json)
         np.savez_compressed(output_filename_truncated + '.npz', data=data, seg=seg)
         write_pickle(properties, output_filename_truncated + '.pkl')
 
@@ -298,7 +300,7 @@ def example_test_case_preprocessing():
     # resolution. What comes out of the preprocessor might have been resampled to some other image resolution (as
     # specified by plans)
     plans_manager = PlansManager(plans_file)
-    data, _, properties = pp.run_case(input_images, seg_file=None, plans_manager=plans_manager,
+    data, _, properties, _ = pp.run_case(input_images, seg_file=None, plans_manager=plans_manager,
                                       configuration_manager=plans_manager.get_configuration(configuration),
                                       dataset_json=dataset_json_file)
 

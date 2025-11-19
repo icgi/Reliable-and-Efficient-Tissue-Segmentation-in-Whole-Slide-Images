@@ -28,7 +28,7 @@ def preprocess_fromfiles_save_to_queue(list_of_lists: List[List[str]],
         label_manager = plans_manager.get_label_manager(dataset_json)
         preprocessor = configuration_manager.preprocessor_class(verbose=verbose)
         for idx in range(len(list_of_lists)):
-            data, seg, data_properties = preprocessor.run_case(list_of_lists[idx],
+            data, seg, data_properties, original_image = preprocessor.run_case(list_of_lists[idx],
                                                                list_of_segs_from_prev_stage_files[
                                                                    idx] if list_of_segs_from_prev_stage_files is not None else None,
                                                                plans_manager,
@@ -41,7 +41,8 @@ def preprocess_fromfiles_save_to_queue(list_of_lists: List[List[str]],
             data = torch.from_numpy(data).to(dtype=torch.float32, memory_format=torch.contiguous_format)
 
             item = {'data': data, 'data_properties': data_properties,
-                    'ofile': output_filenames_truncated[idx] if output_filenames_truncated is not None else None}
+                    'ofile': output_filenames_truncated[idx] if output_filenames_truncated is not None else None,
+                    'original_image': original_image}
             success = False
             while not success:
                 try:
@@ -151,7 +152,7 @@ class PreprocessAdapter(DataLoader):
         # if we have a segmentation from the previous stage we have to process it together with the images so that we
         # can crop it appropriately (if needed). Otherwise it would just be resized to the shape of the data after
         # preprocessing and then there might be misalignments
-        data, seg, data_properties = self.preprocessor.run_case(files, seg_prev_stage, self.plans_manager,
+        data, seg, data_properties, original_image = self.preprocessor.run_case(files, seg_prev_stage, self.plans_manager,
                                                                 self.configuration_manager,
                                                                 self.dataset_json)
         if seg_prev_stage is not None:
@@ -160,7 +161,7 @@ class PreprocessAdapter(DataLoader):
 
         data = torch.from_numpy(data)
 
-        return {'data': data, 'data_properties': data_properties, 'ofile': ofile}
+        return {'data': data, 'data_properties': data_properties, 'ofile': ofile, 'original_image': original_image}
 
 
 class PreprocessAdapterFromNpy(DataLoader):

@@ -33,6 +33,8 @@ from nnunetv2.utilities.label_handling.label_handling import determine_num_input
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
 
+from fpdf import FPDF
+
 
 class nnUNetPredictor(object):
     def __init__(self,
@@ -333,7 +335,8 @@ class nnUNetPredictor(object):
                                    save_probabilities: bool = False,
                                    num_processes_segmentation_export: int = default_num_processes,
                                    postproc_cfg: dict = None,
-                                   extension: str = None):
+                                   extension: str = None,
+                                   generate_pdf: FPDF = None,):
         """
         each element returned by data_iterator must be a dict with 'data', 'ofile' and 'data_properties' keys!
         If 'ofile' is None, the result will be returned instead of written to a file
@@ -349,6 +352,9 @@ class nnUNetPredictor(object):
                     os.remove(delfile)
 
                 ofile = preprocessed['ofile']
+
+                original_image = preprocessed['original_image']
+
                 if ofile is not None:
                     print(f'\nPredicting {os.path.basename(ofile)}:')
                 else:
@@ -374,7 +380,7 @@ class nnUNetPredictor(object):
                         export_pool.starmap_async(
                             export_prediction_from_logits,
                             ((prediction, properties, self.configuration_manager, self.plans_manager,
-                              self.dataset_json, ofile, save_probabilities, postproc_cfg, extension),)
+                              self.dataset_json, ofile, save_probabilities, postproc_cfg, extension, generate_pdf),)
                         )
                     )
                 else:

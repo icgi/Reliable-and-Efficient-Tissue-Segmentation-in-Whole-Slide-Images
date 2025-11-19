@@ -10,9 +10,14 @@ from batchgenerators.utilities.file_and_folder_operations import load_json, isfi
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
+from nnunetv2.utilities.utils import overlay_mask
 
 import cc3d
 import scipy.ndimage as ndi
+
+from PIL import Image
+from fpdf import FPDF
+import io
 
 def postproc(mask: np.ndarray,
              *,
@@ -137,9 +142,11 @@ def export_prediction_from_logits(predicted_array_or_file: Union[np.ndarray, tor
                                   plans_manager: PlansManager,
                                   dataset_json_dict_or_file: Union[dict, str],
                                   output_file_truncated: str,
+                                  original_image: np.ndarray,
                                   save_probabilities: bool = False, binary_01=False,
                                   postproc_cfg: dict = None,
-                                  extension: str = None):
+                                  extension: str = None,
+                                  generate_pdf: FPDF = None):
     # if isinstance(predicted_array_or_file, str):
     #     tmp = deepcopy(predicted_array_or_file)
     #     if predicted_array_or_file.endswith('.npy'):
@@ -173,6 +180,30 @@ def export_prediction_from_logits(predicted_array_or_file: Union[np.ndarray, tor
 
     if not binary_01:
         segmentation_final = segmentation_final * 255
+
+    if generate_pdf is not None:
+        generate_pdf.add_page()
+
+        generate_pdf.set_font("Arial", size=14, style="B")
+        generate_pdf.set_xy(10, 10)
+        generate_pdf.cell(0, 10, output_file_truncated, ln=True)
+
+        segmentation_final_tranpose = np.transpose(segmentation_final, (1, 2, 0))
+        overlay_image = overlay_mask(original_image, segmentation_final_tranpose)
+
+        concat_overlay = np.concatenate((original_image, overlay_image), axis=1)
+
+        concat_overlay = Image.fromarray(concat_overlay)
+
+        buf = io.BytesIO()
+        concat_overlay.save(buf, format='PNG')
+        buf.name = "temp.png"
+        buf.seek(0)
+        generate_pdf.image(name=buf, x=10, y=25, w=190)
+
+        buf.close()
+        del buf
+        del concat_overlay
 
     rw = plans_manager.image_reader_writer_class()
 

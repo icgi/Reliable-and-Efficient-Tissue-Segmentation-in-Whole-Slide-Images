@@ -323,6 +323,19 @@ def image_from_scan(scan_path, target_mpp, bg_value_hex_str):
 
     return resized_image, info
 
+def overlay_mask(image, mask, mode="outline", color=(0, 0, 255), thickness=30, alpha=0.4):
+    """Return overlayed image."""
+    if mode == "outline":
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        over = image.copy()
+        cv2.drawContours(over, contours, -1, color, thickness)
+        return over
+    elif mode == "fill":
+        color_layer = np.full_like(image, color, dtype=np.uint8)
+        mask_3c = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR) // 255
+        return (image * (1 - alpha * mask_3c) + color_layer * (alpha * mask_3c)).astype(np.uint8)
+    else:
+        raise ValueError("Mode must be 'outline' or 'fill'.")
 
 
 if __name__ == '__main__':

@@ -52,6 +52,8 @@ from PIL import PngImagePlugin
 
 import re
 
+from fpdf import FPDF
+
 
 LARGE_ENOUGH_NUMBER = 1000
 PngImagePlugin.MAX_TEXT_CHUNK = LARGE_ENOUGH_NUMBER * (1024**2)
@@ -67,11 +69,11 @@ def _preprocess_to_memory(case_id: str,
                           plans, cfg, ds_json,
                           lowres:bool):
     try:
-        data, _, props = pp.run_case([wsi_path], None, plans, cfg, ds_json, lowres)
+        data, _, props, original_image = pp.run_case([wsi_path], None, plans, cfg, ds_json, lowres)
     except Exception as e:
         print(f'Failed {wsi_path}: {e}')
         return case_id, None, None, wsi_path
-    return case_id, data, props, wsi_path
+    return case_id, data, props, wsi_path, original_image
 
 
 
@@ -150,6 +152,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                                   keep_parent: bool = False,
                                   depth_index: int = 4,
                                   lowres: bool = False,
+                                  generate_pdf: FPDF = None,
                                   pp_cfg: dict = None):
         
         output_folder = output_folder_or_list_of_truncated_output_files
@@ -159,7 +162,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
 
         if list_of_lists_or_source_folder.lower().endswith('.txt') or suffix is not None:
             print(f'[TissueNNUnetPredictor] Streaming WSI fully in memory...')
-            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, suffix, extension, exclude, lowres=lowres, postproc_cfg=pp_cfg, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01, keep_parent=keep_parent, depth_index=depth_index)
+            self.predict_wsi_streaming(list_of_lists_or_source_folder, output_folder, suffix, extension, exclude, lowres=lowres, postproc_cfg=pp_cfg, overwrite=overwrite, cpu_workers=num_processes_preprocessing, binary_01=binary_01, keep_parent=keep_parent, depth_index=depth_index, generate_pdf=generate_pdf)
 
             return
 
@@ -183,12 +186,14 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                                    data_iterator,
                                    save_probabilities: bool = False,
                                    num_processes_segmentation_export: int = default_num_processes,
-                                   binary_01: bool = False):
+                                   binary_01: bool = False,
+                                   generate_pdf: FPDF = None):
         """
         each element returned by data_iterator must be a dict with 'data', 'ofile' and 'data_properties' keys!
         If 'ofile' is None, the result will be returned instead of written to a file
         """
         with multiprocessing.get_context("spawn").Pool(num_processes_segmentation_export) as export_pool:
+
             worker_list = [i for i in export_pool._pool]
             r = []
             for preprocessed in data_iterator:
@@ -199,6 +204,8 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                     os.remove(delfile)
 
                 ofile = preprocessed['ofile']
+                original_image = preprocessed['original_image']
+
                 if ofile is not None:
                     print(f'\nPredicting {os.path.basename(ofile)}:')
                 else:
@@ -223,7 +230,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                         export_pool.starmap_async(
                             export_prediction_from_logits,
                             ((prediction, properties, self.configuration_manager, self.plans_manager,
-                              self.dataset_json, ofile, save_probabilities, binary_01),)
+                              self.dataset_json, ofile, original_image, save_probabilities, binary_01, generate_pdf),)
                         )
                     )
                 else:
@@ -257,9 +264,9 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             Path(p).stem, p, pp, plans, cfg, ds_json, lowres
         )
 
-    def _handle_result(self, fut, keep_parent, depth_index, wsi_txt, cfg, plans, ds_json, postproc_cfg, extension, binary_01, output_folder):
+    def _handle_result(self, fut, keep_parent, depth_index, wsi_txt, cfg, plans, ds_json, generate_pdf, postproc_cfg, extension, binary_01, output_folder):
         try:
-            cid, np_data, props, wsi_path = fut.result()
+            cid, np_data, props, wsi_path, original_image = fut.result()
         except Exception as e:
             print(f"Preprocessing failed for {wsi_path}: {e}")
             return
@@ -289,7 +296,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
 
             export_prediction_from_logits(
                 logits, props, cfg, plans, ds_json,
-                png_file, save_probabilities=False, binary_01=binary_01, postproc_cfg=postproc_cfg, extension=extension
+                png_file, original_image, save_probabilities=False, binary_01=binary_01, postproc_cfg=postproc_cfg, extension=extension, generate_pdf=generate_pdf,
             )
 
         except Exception as e:
@@ -314,6 +321,7 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             keep_parent: bool = False,
             depth_index: int = 4,
             lowres: bool = False,
+            generate_pdf: FPDF = None,
             postproc_cfg: dict = None
     ):
         if os.path.splitext(wsi_txt)[1] == '.txt':
@@ -362,13 +370,13 @@ class TissueNNUnetPredictor(nnUNetPredictor):
                 if len(pending) >= max_in_flight:
                     done, pending = wait(pending, return_when=FIRST_COMPLETED)
                     for fut in done:
-                        self._handle_result(fut, keep_parent=keep_parent, depth_index=depth_index, wsi_txt=wsi_txt, cfg=cfg, plans=plans, ds_json=ds_json, postproc_cfg=postproc_cfg, extension=extension, binary_01=binary_01, output_folder=output_folder)
+                        self._handle_result(fut, keep_parent=keep_parent, depth_index=depth_index, wsi_txt=wsi_txt, cfg=cfg, plans=plans, ds_json=ds_json, generate_pdf=generate_pdf, postproc_cfg=postproc_cfg, extension=extension, binary_01=binary_01, output_folder=output_folder)
 
                         completed_counter += 1
                         print(f"{completed_counter}/{total_count} scans completed...")
 
             for fut in pending:
-                self._handle_result(fut, keep_parent=keep_parent, depth_index=depth_index, wsi_txt=wsi_txt, cfg=cfg, plans=plans, ds_json=ds_json, postproc_cfg=postproc_cfg, extension=extension, binary_01=binary_01, output_folder=output_folder)
+                self._handle_result(fut, keep_parent=keep_parent, depth_index=depth_index, wsi_txt=wsi_txt, cfg=cfg, plans=plans, ds_json=ds_json, generate_pdf=generate_pdf, postproc_cfg=postproc_cfg, extension=extension, binary_01=binary_01, output_folder=output_folder)
 
                 completed_counter += 1
                 print(f"{completed_counter}/{total_count} scans completed...")
@@ -402,6 +410,8 @@ def predict_tissue_entry_point():
                         help='Include this flag if you want each prediction to be saved in a parent folder in the same order as the source folder.')
     parser.add_argument('--depth_index', type=int, required=False, default=4,
                         help='Sets the relative path depth for parent directory if keep_parent is set with a txt list as input.')
+    parser.add_argument('--generate_pdf', action='store_true', required=False, default=False,
+                        help='Generate a pdf to compare mask overlays to original scans.')
     ########################################################################################
 
 
@@ -553,6 +563,13 @@ def predict_tissue_entry_point():
             checkpoint_name=f'checkpoint_{resolution}um_ResEnc.pth',
         )
 
+    if args.generate_pdf:
+        pdf = FPDF(unit='mm', format='A4')
+        pdf.set_auto_page_break(False)
+        pdf.set_compression(True)
+        pdf.pdf_version = '1.5'
+    else:
+        pdf = None
 
 
     print(f"Time for loading model {time() - t0} seconds")
@@ -573,7 +590,12 @@ def predict_tissue_entry_point():
                                                            keep_parent=args.keep_parent,
                                                            depth_index=args.depth_index,
                                                            lowres=args.lowres,
+                                                           generate_pdf=pdf,
                                                            pp_cfg=pp_cfg)
+
+    if args.generate_pdf:
+        pdf.output(f"{args.o}/test_pdf.pdf")
+
     t1 = time()
 
     print(f"Total time including model loading and inference {t1-t0} seconds")

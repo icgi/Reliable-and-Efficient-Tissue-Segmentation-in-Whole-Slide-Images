@@ -116,6 +116,8 @@ class DefaultPreprocessor(object):
             seg = seg.astype(np.int8)
         return data, seg
 
+
+
     def run_case(self, image_files: List[str], seg_file: Union[str, None], plans_manager: PlansManager,
                  configuration_manager: ConfigurationManager,
                  dataset_json: Union[dict, str],
@@ -148,6 +150,10 @@ class DefaultPreprocessor(object):
         else:
             # load image(s)
             data, data_properties = rw.read_images(image_files)
+
+            original_image = data.copy()
+            original_image = original_image[:, 0, :, :]
+            original_image = np.transpose(original_image, (1,2,0))
 
         # if possible, load seg
         if seg_file is not None:

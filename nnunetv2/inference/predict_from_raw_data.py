@@ -211,7 +211,9 @@ class nnUNetPredictor(object):
                            num_parts: int = 1,
                            part_id: int = 0,
                            pp_cfg: dict = None,
-                           extension: str = None):
+                           extension: str = None,
+                           binary_01: bool = False,
+                           generate_pdf: FPDF = None):
         """
         This is nnU-Net's default function for making predictions. It works best for batch predictions
         (predicting many images at once).
@@ -229,6 +231,12 @@ class nnUNetPredictor(object):
             my_init_kwargs = {}
             for k in inspect.signature(self.predict_from_files).parameters.keys():
                 my_init_kwargs[k] = locals()[k]
+
+            if "generate_pdf" in my_init_kwargs:
+                my_init_kwargs["generate_pdf"] = (
+                    my_init_kwargs["generate_pdf"] is not None
+                )
+
             my_init_kwargs = deepcopy(
                 my_init_kwargs)  # let's not unintentionally change anything in-place. Take this as a
             recursive_fix_for_json_export(my_init_kwargs)
@@ -261,7 +269,7 @@ class nnUNetPredictor(object):
                                                                                  output_filename_truncated,
                                                                                  num_processes_preprocessing)
 
-        return self.predict_from_data_iterator(data_iterator, save_probabilities, num_processes_segmentation_export)
+        return self.predict_from_data_iterator(data_iterator, save_probabilities, num_processes_segmentation_export, binary_01=binary_01, generate_pdf=generate_pdf)
 
     def _internal_get_data_iterator_from_lists_of_filenames(self,
                                                             input_list_of_lists: List[List[str]],
@@ -336,7 +344,8 @@ class nnUNetPredictor(object):
                                    num_processes_segmentation_export: int = default_num_processes,
                                    postproc_cfg: dict = None,
                                    extension: str = None,
-                                   generate_pdf: FPDF = None,):
+                                   binary_01: bool = False,
+                                   generate_pdf: FPDF = None):
         """
         each element returned by data_iterator must be a dict with 'data', 'ofile' and 'data_properties' keys!
         If 'ofile' is None, the result will be returned instead of written to a file
@@ -353,8 +362,6 @@ class nnUNetPredictor(object):
 
                 ofile = preprocessed['ofile']
 
-                original_image = preprocessed['original_image']
-
                 if ofile is not None:
                     print(f'\nPredicting {os.path.basename(ofile)}:')
                 else:
@@ -363,6 +370,8 @@ class nnUNetPredictor(object):
                 print(f'perform_everything_on_device: {self.perform_everything_on_device}')
 
                 properties = preprocessed['data_properties']
+
+                original_image = preprocessed['original_image']
 
                 # let's not get into a runaway situation where the GPU predicts so fast that the disk has to b swamped with
                 # npy files
@@ -380,7 +389,7 @@ class nnUNetPredictor(object):
                         export_pool.starmap_async(
                             export_prediction_from_logits,
                             ((prediction, properties, self.configuration_manager, self.plans_manager,
-                              self.dataset_json, ofile, save_probabilities, postproc_cfg, extension, generate_pdf),)
+                              self.dataset_json, ofile, original_image, save_probabilities, binary_01, postproc_cfg, extension, generate_pdf),)
                         )
                     )
                 else:

@@ -179,7 +179,9 @@ class TissueNNUnetPredictor(nnUNetPredictor):
             num_parts,
             part_id,
             pp_cfg,
-            extension
+            binary_01,
+            extension,
+            generate_pdf,
         )
 
     def predict_tissue_from_data_iterator(self,
@@ -568,6 +570,7 @@ def predict_tissue_entry_point():
         pdf.set_auto_page_break(False)
         pdf.set_compression(True)
         pdf.pdf_version = '1.5'
+        pdf.oversized_images = "DOWNSCALE"
     else:
         pdf = None
 

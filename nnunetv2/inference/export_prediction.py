@@ -186,24 +186,46 @@ def export_prediction_from_logits(predicted_array_or_file: Union[np.ndarray, tor
 
         generate_pdf.set_font("Arial", size=14, style="B")
         generate_pdf.set_xy(10, 10)
-        generate_pdf.cell(0, 10, output_file_truncated, ln=True)
+        case_name = output_file_truncated.split('/')[-1]
+        generate_pdf.cell(0, 10, case_name, ln=True)
 
+        # --- build image as before ---
         segmentation_final_tranpose = np.transpose(segmentation_final, (1, 2, 0))
+
         overlay_image = overlay_mask(original_image, segmentation_final_tranpose)
 
-        concat_overlay = np.concatenate((original_image, overlay_image), axis=1)
+        h, w, _ = overlay_image.shape
+        if w > h:
+            concat_overlay = np.concatenate((original_image, overlay_image), axis=0)
+        else:
+            concat_overlay = np.concatenate((original_image, overlay_image), axis=1)
 
         concat_overlay = Image.fromarray(concat_overlay)
+        b, g, r = concat_overlay.split()
+        concat_overlay = Image.merge("RGB", (r, g, b))
 
+
+        # downscale (optional)
+        downsampling_factor = 0.25
+        concat_overlay = concat_overlay.resize(
+            (int(concat_overlay.width * downsampling_factor),
+            int(concat_overlay.height * downsampling_factor)),
+            Image.LANCZOS
+        )
+
+        # convert to buffer
         buf = io.BytesIO()
-        concat_overlay.save(buf, format='PNG')
-        buf.name = "temp.png"
+        concat_overlay.save(buf, format='JPEG', quality=80, optimize=True, subsampling=2)
         buf.seek(0)
-        generate_pdf.image(name=buf, x=10, y=25, w=190)
+
+        max_w_mm = generate_pdf.w - 2 * generate_pdf.l_margin
+        max_h_mm = generate_pdf.h - 2 * generate_pdf.t_margin
+
+        generate_pdf.image(buf, w=max_w_mm, h=max_h_mm, keep_aspect_ratio=True)
+
 
         buf.close()
-        del buf
-        del concat_overlay
+
 
     rw = plans_manager.image_reader_writer_class()
 

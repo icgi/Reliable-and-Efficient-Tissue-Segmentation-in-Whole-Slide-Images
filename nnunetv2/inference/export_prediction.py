@@ -179,7 +179,7 @@ def export_prediction_from_logits(predicted_array_or_file: Union[np.ndarray, tor
         segmentation_final = postproc(segmentation_final, **postproc_cfg, prob=None)
 
     if not binary_01:
-        segmentation_final = segmentation_final * 255
+        segmentation_final = (segmentation_final * 255).astype(np.uint8)
 
     if generate_pdf is not None:
         generate_pdf.add_page()
@@ -194,12 +194,15 @@ def export_prediction_from_logits(predicted_array_or_file: Union[np.ndarray, tor
 
         overlay_image = overlay_mask(original_image, segmentation_final_tranpose)
 
+        overlay_image = overlay_image.astype(np.uint8)
+
         h, w, _ = overlay_image.shape
         if w > h:
             concat_overlay = np.concatenate((original_image, overlay_image), axis=0)
         else:
             concat_overlay = np.concatenate((original_image, overlay_image), axis=1)
 
+        concat_overlay = concat_overlay.astype(np.uint8)
         concat_overlay = Image.fromarray(concat_overlay)
         b, g, r = concat_overlay.split()
         concat_overlay = Image.merge("RGB", (r, g, b))

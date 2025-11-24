@@ -94,6 +94,7 @@ nnUNetv2_predict_tissue
  --resenc \                   # Use the Residual Encoder network (resource-heavy and significant increase in inference time).
  --lowres \                   # Use 20 um/px instead of 10 um/px model (Much faster with similar performance to original model).
  --b01 \                      # Get output in binary [0,1] instead of [0,255].
+ --generate_pdf               # Creates a pdf comparing each scan to the predicted tissue mask (requires a full run of segmentation as pdf is generated at the end).
  --continue_prediction        # Continue prediction if output already exists in path. 
 ```
 
@@ -166,28 +167,36 @@ output_folder/
 While our paper illustrates our 10 um/px model, giving a good balance in accuracy and efficiency, the 20 um/px model can often be a good enough alternative. With more than 3 times faster segmentation speed, it only gives a slight reduction in segmentation accuracy. If you don't require highly accurate masks, we recommend using the 20 um/px model as the performance is very similar, with a great boost in inference speed. To use the 20 um/px model, use the lowres flag.
 
 ```bash
-nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --lowres
+nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output --lowres
 ```
 
 ### Resenc (residual encoder UNet)
 By default, the standard nnUNetv2 model will be used. If you want to use the **residual encoder (ResEnc)** model, please use the **-resenc** flag. Please be aware that inference time will be slightly longer due to the complexity of the ResEnc network. 
 
 ```bash
-nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --resenc
+nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output --resenc
 ```
 
 ### Binary [0,1] output
 We have modified the pipeline to output [0,255] instead of the original [0,1] output. To get **binary [0,1]** output, please use the **--b01** flag during inference:
 
 ```bash
-nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --b01
+nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output --b01
 ```
+
+### Generate comparison PDF
+Including the **--generate_pdf** flag will create a PDF at the end of inference showing a mask overlay of the predicted tissue on the original scan. This can be useful when failed segmentations are critical and a manual integrity check is necessary. Currently, this flag is not supported for PNG images as inputs and will only work with a txt list of WSIs paths or the direct path to the WSIs directory. 
+
+```bash
+nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output --generate_pdf
+```
+
 
 ### Continue prediction
 If you have an incomplete run of segmentation masks, you can continue where the model stopped by running the continue_prediction flag.
 
 ```bash
-nnUNetv2_predict_tissue -i /path/to/images -o /path/to/output --continue_prediction
+nnUNetv2_predict_tissue -i /path/to/WSIs -o /path/to/output --continue_prediction
 ```
 
 ### Post processing

@@ -53,7 +53,8 @@ dependencies = [
     "batchgeneratorsv2>=0.2",
     "einops",
     "openslide-python>=1.4.2",
-    "opencv-python==4.11.0.86"
+    "opencv-python==4.11.0.86",
+    "fpdf2==2.8.5",
 ]
 
 [project.urls]
